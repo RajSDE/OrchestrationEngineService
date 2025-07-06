@@ -117,5 +117,8 @@ A workflow is defined in `src/main/resources/workflow-steps.xml`:
 
 ## License
 
-MIT
+This project is proprietary and all code is owned by RajSDE (GitHub: RajSDE) (c) 2025. All rights reserved.
 
+- No part of this codebase may be used, copied, modified, or distributed for commercial purposes without explicit written permission from the owner.
+- Personal, non-commercial use is permitted with attribution.
+- For full terms, see the LICENSE file in this repository.
