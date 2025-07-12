@@ -1,4 +1,4 @@
-<workflow id="getuser">
+<workflow serviceCode="getuser">
     <step id="VALIDATE_USER"/>
     <step id="CHECK_BALANCE"/>
     <step id="DEBIT_ACCOUNT"/>

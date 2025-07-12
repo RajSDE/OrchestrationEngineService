@@ -29,9 +29,9 @@ public class WorkflowStepLoader {
                     DocumentBuilder builder = factory.newDocumentBuilder();
                     Document doc = builder.parse(is);
                     Element root = doc.getDocumentElement();
-                    if (root != null && root.hasAttribute("id")) {
-                        String id = root.getAttribute("id");
-                        workflowMap.put(id, resource.getFilename());
+                    if (root != null && root.hasAttribute("serviceCode")) {
+                        String serviceCode = root.getAttribute("serviceCode");
+                        workflowMap.put(serviceCode, resource.getFilename());
                     }
                 }
             }
