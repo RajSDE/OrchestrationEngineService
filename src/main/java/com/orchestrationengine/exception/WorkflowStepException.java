@@ -1,8 +1,8 @@
 package com.orchestrationengine.exception;
 
-import org.springframework.context.MessageSource;
-import java.util.Locale;
+import lombok.Getter;
 
+@Getter
 public class WorkflowStepException extends RuntimeException {
     private final String errorCode;
     private String errorMessage;
@@ -15,12 +15,5 @@ public class WorkflowStepException extends RuntimeException {
     public WorkflowStepException(String errorCode) {
         super(errorCode);
         this.errorCode = errorCode;
-    }
-    public String getErrorCode() {
-        return errorCode;
-    }
-
-    public String getErrorMessage() {
-        return errorMessage;
     }
 }
