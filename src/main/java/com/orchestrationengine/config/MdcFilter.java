@@ -1,0 +1,42 @@
+package com.orchestrationengine.config;
+
+import org.slf4j.MDC;
+import org.springframework.lang.NonNull;
+import org.springframework.stereotype.Component;
+import org.springframework.web.filter.OncePerRequestFilter;
+
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+
+import java.io.IOException;
+import java.util.UUID;
+
+@Component
+public class MdcFilter extends OncePerRequestFilter {
+
+    public static final String MDC_KEY = "traceId";
+    private static final String HEADER_NAME = "X-Trace-Id";
+
+    @Override
+    protected void doFilterInternal(
+            @NonNull HttpServletRequest request,
+            @NonNull HttpServletResponse response,
+            @NonNull FilterChain filterChain)
+            throws ServletException, IOException {
+
+        try {
+            String traceId = request.getHeader(HEADER_NAME);
+            if (traceId == null || traceId.isEmpty()) {
+                traceId = UUID.randomUUID().toString();
+            }
+            MDC.put(MDC_KEY, traceId);
+            response.setHeader(HEADER_NAME, traceId);
+            request.setAttribute(MDC_KEY, traceId);
+            filterChain.doFilter(request, response);
+        } finally {
+            MDC.clear();
+        }
+    }
+}

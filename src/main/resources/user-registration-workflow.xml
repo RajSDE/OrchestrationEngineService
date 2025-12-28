@@ -1,6 +1,0 @@
-<workflow serviceCode="USER_REGISTRATION">
-    <step id="VALIDATE_USER" handler="com.orchestrationengine.service.ValidateUserService"/>
-    <step id="REGISTER_USER" handler="com.orchestrationengine.ums.steps.RegisterUserStep"/>
-    <step id="SEND_NOTIFICATION" handler="com.orchestrationengine.service.SendNotificationService"/>
-</workflow>
-

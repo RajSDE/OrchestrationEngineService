@@ -1,88 +1,171 @@
 package com.orchestrationengine.service;
 
-import com.orchestrationengine.exception.WorkflowStepException;
-import lombok.RequiredArgsConstructor;
-import org.springframework.context.ApplicationContext;
-import org.springframework.stereotype.Component;
+import com.orchestrationengine.config.MdcFilter;
 import com.orchestrationengine.config.WorkflowStepLoader;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.MessageSource;
+import com.orchestrationengine.exception.WorkflowStepException;
+import com.orchestrationengine.model.WorkflowStepDefinition;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.slf4j.MDC;
+import org.springframework.context.ApplicationContext;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
+import org.springframework.stereotype.Component;
+import org.springframework.beans.factory.NoSuchBeanDefinitionException;
 
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.*;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Locale;
 
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class WorkflowExecutor {
+
     private final ApplicationContext context;
     private final WorkflowStepLoader stepLoader;
-    private final int maxRetries = 3; // Default retry count
-    private final ExecutorService executorService = Executors.newSingleThreadExecutor();
-    @Autowired
-    private MessageSource messageSource;
+    private final ThreadPoolTaskExecutor workflowAsyncPool;
+    private final ThreadPoolTaskExecutor stepExecutionPool;
+
+    private record ExecutedStep(WorkflowStep stepBean, WorkflowStepDefinition def) {
+    }
 
     public void executeWorkflowByServiceCode(String serviceCode, Map<String, Object> requestContext, String language) {
-        List<String> stepIds = stepLoader.loadStepsByServiceCode(serviceCode);
-        ArrayList<WorkflowStep> executedSteps = new ArrayList<>();
-        Locale locale = (language != null && !language.isEmpty()) ? Locale.forLanguageTag(language) : Locale.getDefault();
+        List<WorkflowStepDefinition> stepDefs = stepLoader.getSteps(serviceCode);
+        String traceId = MDC.get(MdcFilter.MDC_KEY);
+        if (traceId == null) {
+            traceId = java.util.UUID.randomUUID().toString();
+        }
+        requestContext.put("traceId", traceId);
+        if (stepDefs == null || stepDefs.isEmpty()) {
+            log.error("No workflow steps found for serviceCode: {}", serviceCode);
+            failWorkflow(requestContext, "WORKFLOW_NOT_FOUND", "No workflow definition found for service: " + serviceCode);
+            return;
+        }
+
+        List<ExecutedStep> executedSteps = new ArrayList<>();
+        String currentStepId = null;
+
         try {
-            for (String stepId : stepIds) {
-                WorkflowStep stepBean = (WorkflowStep) context.getBean(stepId);
-                boolean success = false;
-                int attempt = 0;
-                Exception lastException = null;
-                while (!success && attempt < maxRetries) {
-                    Future<?> future = executorService.submit(() -> {
+            for (WorkflowStepDefinition stepDef : stepDefs) {
+                currentStepId = stepDef.getId();
+
+                if (!stepDef.isEnabled()) continue;
+
+                WorkflowStep stepBean;
+                try {
+                    stepBean = context.getBean(stepDef.getId(), WorkflowStep.class);
+                } catch (NoSuchBeanDefinitionException e) {
+                    throw new RuntimeException("Bean not found for step: " + stepDef.getId(), e);
+                }
+
+                log.info("Executing step: {}, for: {}", stepDef.getId(), stepDef.getName());
+                if (stepDef.isAsync()) {
+                    workflowAsyncPool.submit(() -> {
                         try {
-                            stepBean.execute(requestContext);
+                            log.info("Executing async step: {}", stepDef.getId());
+                            executeStep(stepBean, requestContext, stepDef);
                         } catch (Exception e) {
-                            throw new RuntimeException(e);
+                            log.error("Async step [{}] failed", stepDef.getId(), e);
                         }
                     });
-                    try {
-                        future.get(); // Wait for async execution
-                        success = true;
-                    } catch (Exception e) {
-                        attempt++;
-                        lastException = e instanceof ExecutionException ? (Exception) e.getCause() : new Exception(e);
-                        if (attempt >= maxRetries) {
-                            Map<String, Object> error = new HashMap<>();
-                            String errorCode = "WF_STEP_FAIL";
-                            String errorMessage = lastException.getMessage();
-                            Throwable cause = lastException;
-                            if (lastException instanceof RuntimeException && lastException.getCause() instanceof WorkflowStepException) {
-                                cause = lastException.getCause();
-                            }
-                            if (cause instanceof WorkflowStepException) {
-                                errorCode = ((WorkflowStepException) cause).getErrorCode();
-                                errorMessage = messageSource.getMessage(errorCode, null, errorCode, locale);
-                            }
-                            error.put("code", errorCode);
-                            error.put("message", errorMessage);
-                            error.put("component", stepId);
-                            requestContext.put("error", error);
-                            throw lastException;
-                        }
-                    }
-                }
-                executedSteps.add(stepBean);
-            }
-            requestContext.put("workflowStatus", "SUCCESS");
-        } catch (Exception ex) {
-            // Rollback previously executed steps in reverse order
-            for (int i = executedSteps.size() - 1; i >= 0; i--) {
-                try {
-                    executedSteps.get(i).rollback(requestContext);
-                } catch (Exception rollbackEx) {
-                    // Optionally log rollback failure
+                } else {
+                    executedSteps.add(new ExecutedStep(stepBean, stepDef));
+                    executeStep(stepBean, requestContext, stepDef);
                 }
             }
-            requestContext.put("status", "FAILED");
-            // Optionally log or rethrow the workflow failure
+            requestContext.put("status", "SUCCESS");
+
+        } catch (Exception e) {
+            handleException(e, requestContext, executedSteps, currentStepId);
         }
+    }
+
+    private void executeStep(WorkflowStep step, Map<String, Object> ctx, WorkflowStepDefinition def) throws Exception {
+        int maxRetries = def.isRetry() ? 3 : 1;
+        int attempts = 0;
+        // Default timeout 10 seconds if not defined in XML
+        long timeout = def.getTimeout() > 0 ? def.getTimeout() : 10000;
+        Exception lastException = null;
+        Future<?> future = null;
+        while (attempts < maxRetries) {
+            try {
+                future = stepExecutionPool.submit(() -> {
+                    try {
+                        step.execute(ctx);
+                    } catch (Exception e) {
+                        throw new RuntimeException(e);
+                    }
+                });
+                future.get(timeout, TimeUnit.MILLISECONDS);
+
+                return;
+
+            } catch (TimeoutException e) {
+                future.cancel(true);
+                attempts++;
+                lastException = new RuntimeException("Step timed out after " + timeout + "ms");
+
+            } catch (ExecutionException e) {
+                attempts++;
+                Throwable cause = e.getCause();
+                lastException = (cause instanceof Exception) ? (Exception) cause : new Exception(cause);
+
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw e;
+            }
+            if (attempts < maxRetries) {
+                log.warn("Retrying step {} due to error: {}", def.getId(), lastException.getMessage());
+                Thread.sleep(100);
+            }
+        }
+
+        throw lastException;
+    }
+
+    private void handleException(Exception e, Map<String, Object> requestContext, List<ExecutedStep> executedSteps, String failedComponentId) {
+        log.error("Workflow failed at step: {}", failedComponentId, e);
+        Map<String, Object> errorDetails = getErrorInformation(e, failedComponentId);
+        requestContext.put("error", errorDetails);
+        requestContext.put("status", "FAILED");
+
+        for (int i = executedSteps.size() - 1; i >= 0; i--) {
+            ExecutedStep item = executedSteps.get(i);
+
+            if (item.def().isRollback()) {
+                try {
+                    log.info("Rolling back step: {}", item.def().getId());
+                    item.stepBean().rollback(requestContext);
+                } catch (Exception ignored) {
+                    log.warn("Rollback failed for step: {}", item.def().getId());
+                }
+            } else {
+                log.info("Skipping rollback for step: {} (rollback=false)", item.def().getId());
+            }
+        }
+    }
+
+    private void failWorkflow(Map<String, Object> ctx, String code, String message) {
+        Map<String, Object> error = new HashMap<>();
+        error.put("component", "ORCHESTRATOR");
+        error.put("code", code);
+        error.put("message", message);
+        ctx.put("error", error);
+        ctx.put("status", "FAILED");
+    }
+
+    private static Map<String, Object> getErrorInformation(Exception e, String failedComponentId) {
+        Map<String, Object> errorDetails = new HashMap<>();
+        Throwable cause = e instanceof RuntimeException && e.getCause() != null ? e.getCause() : e;
+
+        errorDetails.put("component", failedComponentId != null ? failedComponentId : "UNKNOWN");
+
+        if (cause instanceof WorkflowStepException wse) {
+            errorDetails.put("code", wse.getMessage());
+            errorDetails.put("message", "Validation failed");
+        } else {
+            errorDetails.put("code", "INTERNAL_SYSTEM_ERROR");
+            errorDetails.put("message", cause.getMessage());
+        }
+        return errorDetails;
     }
 }

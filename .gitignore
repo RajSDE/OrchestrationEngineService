@@ -1,0 +1,50 @@
+# --- Maven ---
+target/
+*.war
+*.ear
+*.zip
+*.tar.gz
+*.rar
+
+# --- Java Class Files ---
+*.class
+
+# --- Spring Boot ---
+hs_err_pid*
+/logs/
+*.log
+
+# --- VS Code (Your IDE) ---
+.vscode/
+*.code-workspace
+
+# --- IntelliJ IDEA (Common Java IDE) ---
+.idea/
+*.iml
+*.iws
+*.ipr
+out/
+
+# --- Eclipse (Common Java IDE) ---
+.settings/
+bin/
+.classpath
+.project
+.metadata/
+
+# --- Operating System Files ---
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Mac (Just in case)
+.DS_Store
+
+# --- Secrets & Environment Variables ---
+# NEVER commit these to Git!
+.env
+application-local.properties
+application-secret.properties
+secrets.yml

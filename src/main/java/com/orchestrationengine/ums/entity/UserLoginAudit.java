@@ -1,4 +1,4 @@
-package com.orchestrationengine.ums.model;
+package com.orchestrationengine.ums.entity;
 
 import jakarta.persistence.*;
 import lombok.Data;
