@@ -2,6 +2,9 @@ package com.orchestrationengine.config;
 
 import com.orchestrationengine.model.WorkflowStepDefinition;
 import jakarta.annotation.PostConstruct;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.config.ConfigurableBeanFactory;
+import org.springframework.context.annotation.Scope;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
 import org.springframework.stereotype.Component;
@@ -13,9 +16,11 @@ import java.io.InputStream;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
+@Slf4j
 @Component
+@Scope(ConfigurableBeanFactory.SCOPE_SINGLETON)
 public class WorkflowStepLoader {
-    // Changed Map to hold List<WorkflowStepDefinition>
+
     private final Map<String, List<WorkflowStepDefinition>> workflowStepsCache = new ConcurrentHashMap<>();
 
     @PostConstruct
@@ -33,7 +38,7 @@ public class WorkflowStepLoader {
 
                     String serviceCode = root.getAttribute("serviceCode");
                     List<WorkflowStepDefinition> steps = new ArrayList<>();
-
+                    log.debug("Loading workflow steps for service: {}", serviceCode);
                     NodeList stepNodes = doc.getElementsByTagName("step");
                     for (int i = 0; i < stepNodes.getLength(); i++) {
                         Element step = (Element) stepNodes.item(i);

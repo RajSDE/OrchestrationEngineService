@@ -1,9 +1,5 @@
 <workflow serviceCode="USER_REGISTRATION">
-    <step id="VALIDATE_USER" name="User Validation" retry="true" async="false" rollback="false" timeout="5000" enable="true"/>
-    <step id="VALIDATE_USER" name="User Validation" retry="true" async="true" rollback="false" timeout="5000" enable="true"/>
-    <step id="VALIDATE_USER" name="User Validation" retry="true" async="true" rollback="false" timeout="5000" enable="true"/>
-    <step id="VALIDATE_USER" name="User Validation" retry="true" async="true" rollback="false" timeout="5000" enable="true"/>
-    <step id="VALIDATE_USER" name="User Validation" retry="true" async="false" rollback="false" timeout="5000" enable="true"/>
-    <step id="VALIDATE_USER" name="User Validation" retry="true" async="false" rollback="false" timeout="5000" enable="true"/>
+    <step id="validate.user" name="User Validation" retry="true" async="false" rollback="false" timeout="5000" enable="true"/>
+    <step id="register.user" name="User Validation" retry="true" async="true" rollback="false" timeout="5000" enable="true"/>
 </workflow>
 

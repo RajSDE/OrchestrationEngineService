@@ -15,11 +15,21 @@ import org.springframework.beans.factory.NoSuchBeanDefinitionException;
 import java.util.*;
 import java.util.concurrent.*;
 
+/**
+ * WorkflowExecutor is a singleton orchestration component that executes workflow step definitions as commands,
+ * delegating execution to two thread pools (async manager pool and step-execution pool). It implements retries,
+ * timeouts, and compensating rollbacks for synchronous steps, resolves step implementations dynamically from the
+ * Spring context, and records trace information into a shared request context. It combines the Orchestrator,
+ * Command, Service-Locator, Retry, and Compensating-Transaction patterns — offering flexibility and runtime
+ * pluggability but requiring careful attention to bean naming, thread-safety of step implementations, and safe
+ * handling of mutable shared context.
+ */
 @Slf4j
 @Component
 @RequiredArgsConstructor
 public class WorkflowExecutor {
 
+    public static final String WORKFLOW_NOT_FOUND = "WORKFLOW_NOT_FOUND";
     private final ApplicationContext context;
     private final WorkflowStepLoader stepLoader;
     private final ThreadPoolTaskExecutor workflowAsyncPool;
@@ -37,7 +47,7 @@ public class WorkflowExecutor {
         requestContext.put("traceId", traceId);
         if (stepDefs == null || stepDefs.isEmpty()) {
             log.error("No workflow steps found for serviceCode: {}", serviceCode);
-            failWorkflow(requestContext, "WORKFLOW_NOT_FOUND", "No workflow definition found for service: " + serviceCode);
+            failWorkflow(requestContext, WORKFLOW_NOT_FOUND, "No workflow definition found for service: " + serviceCode);
             return;
         }
 
@@ -48,8 +58,11 @@ public class WorkflowExecutor {
             for (WorkflowStepDefinition stepDef : stepDefs) {
                 currentStepId = stepDef.getId();
 
-                if (!stepDef.isEnabled()) continue;
-
+                if (!stepDef.isEnabled()) {
+                    requestContext.put(stepDef.getId(), "DISABLED");
+                    continue;
+                }
+                requestContext.put(stepDef.getId(), "IN_PROGRESS");
                 WorkflowStep stepBean;
                 try {
                     stepBean = context.getBean(stepDef.getId(), WorkflowStep.class);
@@ -71,6 +84,7 @@ public class WorkflowExecutor {
                     executedSteps.add(new ExecutedStep(stepBean, stepDef));
                     executeStep(stepBean, requestContext, stepDef);
                 }
+                requestContext.put(stepDef.getId(), "SUCCESS");
             }
             requestContext.put("status", "SUCCESS");
 
