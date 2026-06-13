@@ -12,8 +12,8 @@ public class UserLoginAudit {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "user_profile_id", nullable = false, length = 30)
-    private String userProfileId;
+    @Column(name = "user_profile_id", nullable = false)
+    private java.util.UUID userProfileId;
 
     @Column(name = "login_attempt_time")
     private LocalDateTime loginAttemptTime;

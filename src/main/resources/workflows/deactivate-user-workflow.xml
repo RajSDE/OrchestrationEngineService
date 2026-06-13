@@ -1,0 +1,3 @@
+<workflow serviceCode="DEACTIVATE_USER">
+    <step id="deactivate.user.status" name="Deactivate Credentials Status" retry="false" async="false" rollback="false" timeout="5000" enable="true"/>
+</workflow>

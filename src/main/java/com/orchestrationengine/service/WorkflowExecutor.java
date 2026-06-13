@@ -4,6 +4,9 @@ import com.orchestrationengine.config.MdcFilter;
 import com.orchestrationengine.config.WorkflowStepLoader;
 import com.orchestrationengine.exception.WorkflowStepException;
 import com.orchestrationengine.model.WorkflowStepDefinition;
+import com.orchestrationengine.repository.WorkflowRepository;
+import com.orchestrationengine.repository.ServiceRequestRepository;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.MDC;
@@ -16,13 +19,7 @@ import java.util.*;
 import java.util.concurrent.*;
 
 /**
- * WorkflowExecutor is a singleton orchestration component that executes workflow step definitions as commands,
- * delegating execution to two thread pools (async manager pool and step-execution pool). It implements retries,
- * timeouts, and compensating rollbacks for synchronous steps, resolves step implementations dynamically from the
- * Spring context, and records trace information into a shared request context. It combines the Orchestrator,
- * Command, Service-Locator, Retry, and Compensating-Transaction patterns — offering flexibility and runtime
- * pluggability but requiring careful attention to bean naming, thread-safety of step implementations, and safe
- * handling of mutable shared context.
+ * WorkflowExecutor is a orchestration component that executes workflow step definitions as commands.
  */
 @Slf4j
 @Component
@@ -34,69 +31,146 @@ public class WorkflowExecutor {
     private final WorkflowStepLoader stepLoader;
     private final ThreadPoolTaskExecutor workflowAsyncPool;
     private final ThreadPoolTaskExecutor stepExecutionPool;
+    private final WorkflowRepository workflowRepository;
+    private final ServiceRequestRepository serviceRequestRepository;
+    private final ObjectMapper objectMapper;
 
-    private record ExecutedStep(WorkflowStep stepBean, WorkflowStepDefinition def) {
+    @org.springframework.beans.factory.annotation.Value("${service.request.record:false}")
+    private boolean recordRequests;
+
+    @org.springframework.beans.factory.annotation.Value("${service.request.workflows:}")
+    private String recordWorkflowsConfig;
+
+    private static class ExecutedStep {
+        private final WorkflowStep stepBean;
+        private final WorkflowStepDefinition def;
+
+        public ExecutedStep(WorkflowStep stepBean, WorkflowStepDefinition def) {
+            this.stepBean = stepBean;
+            this.def = def;
+        }
+
+        public WorkflowStep stepBean() {
+            return stepBean;
+        }
+
+        public WorkflowStepDefinition def() {
+            return def;
+        }
     }
 
     public void executeWorkflowByServiceCode(String serviceCode, Map<String, Object> requestContext, String language) {
-        List<WorkflowStepDefinition> stepDefs = stepLoader.getSteps(serviceCode);
         String traceId = MDC.get(MdcFilter.MDC_KEY);
         if (traceId == null) {
             traceId = java.util.UUID.randomUUID().toString();
         }
         requestContext.put("traceId", traceId);
-        if (stepDefs == null || stepDefs.isEmpty()) {
-            log.error("No workflow steps found for serviceCode: {}", serviceCode);
-            failWorkflow(requestContext, WORKFLOW_NOT_FOUND, "No workflow definition found for service: " + serviceCode);
-            return;
-        }
+        requestContext.put("serviceCode", serviceCode);
 
-        List<ExecutedStep> executedSteps = new ArrayList<>();
-        String currentStepId = null;
+        boolean isRecordable = shouldRecord(serviceCode);
+        java.time.LocalDateTime requestTime = java.time.LocalDateTime.now();
+        String initialRequestPayload = isRecordable ? getCleanRequestPayload(requestContext) : null;
 
         try {
-            for (WorkflowStepDefinition stepDef : stepDefs) {
-                currentStepId = stepDef.getId();
-
-                if (!stepDef.isEnabled()) {
-                    requestContext.put(stepDef.getId(), "DISABLED");
-                    continue;
-                }
-                requestContext.put(stepDef.getId(), "IN_PROGRESS");
-                WorkflowStep stepBean;
-                try {
-                    stepBean = context.getBean(stepDef.getId(), WorkflowStep.class);
-                } catch (NoSuchBeanDefinitionException e) {
-                    throw new RuntimeException("Bean not found for step: " + stepDef.getId(), e);
-                }
-
-                log.info("Executing step: {}, for: {}", stepDef.getId(), stepDef.getName());
-                if (stepDef.isAsync()) {
-                    workflowAsyncPool.submit(() -> {
-                        try {
-                            log.info("Executing async step: {}", stepDef.getId());
-                            executeStep(stepBean, requestContext, stepDef);
-                        } catch (Exception e) {
-                            log.error("Async step [{}] failed", stepDef.getId(), e);
-                        }
-                    });
-                } else {
-                    executedSteps.add(new ExecutedStep(stepBean, stepDef));
-                    executeStep(stepBean, requestContext, stepDef);
-                }
-                requestContext.put(stepDef.getId(), "SUCCESS");
+            // Database runtime toggle check
+            var dbWorkflow = workflowRepository.findById(serviceCode);
+            if (dbWorkflow.isEmpty() || !"Y".equalsIgnoreCase(dbWorkflow.get().getEnabled())) {
+                log.error("Workflow serviceCode: {} is disabled or not registered in database", serviceCode);
+                failWorkflow(requestContext, "WORKFLOW_DISABLED", "Workflow is disabled or not registered in database: " + serviceCode);
+                return;
             }
-            requestContext.put("status", "SUCCESS");
 
-        } catch (Exception e) {
-            handleException(e, requestContext, executedSteps, currentStepId);
+            List<WorkflowStepDefinition> stepDefs = stepLoader.getSteps(serviceCode);
+            if (stepDefs == null || stepDefs.isEmpty()) {
+                log.error("No workflow steps found for serviceCode: {}", serviceCode);
+                failWorkflow(requestContext, WORKFLOW_NOT_FOUND, "No workflow definition found for service: " + serviceCode);
+                return;
+            }
+
+            List<ExecutedStep> executedSteps = new ArrayList<>();
+            String currentStepId = null;
+
+            try {
+                for (WorkflowStepDefinition stepDef : stepDefs) {
+                    currentStepId = stepDef.getId();
+
+                    if (!stepDef.isEnabled()) {
+                        requestContext.put(stepDef.getId(), "DISABLED");
+                        continue;
+                    }
+                    requestContext.put(stepDef.getId(), "IN_PROGRESS");
+                    WorkflowStep stepBean;
+                    try {
+                        stepBean = context.getBean(stepDef.getId(), WorkflowStep.class);
+                    } catch (NoSuchBeanDefinitionException e) {
+                        throw new RuntimeException("Bean not found for step: " + stepDef.getId(), e);
+                    }
+
+                    log.info("Executing step: {}, for: {}", stepDef.getId(), stepDef.getName());
+                    if (stepDef.isAsync()) {
+                        requestContext.put(stepDef.getId(), "SUBMITTED");
+                        workflowAsyncPool.submit(() -> {
+                            try {
+                                log.info("Executing async step: {}", stepDef.getId());
+                                executeStep(stepBean, requestContext, stepDef);
+                                requestContext.put(stepDef.getId(), "SUCCESS");
+                            } catch (Exception e) {
+                                requestContext.put(stepDef.getId(), "FAILED");
+                                log.error("Async step [{}] failed", stepDef.getId(), e);
+                            }
+                        });
+                    } else {
+                        executedSteps.add(new ExecutedStep(stepBean, stepDef));
+                        executeStep(stepBean, requestContext, stepDef);
+                        requestContext.put(stepDef.getId(), "SUCCESS");
+                    }
+                }
+                requestContext.put("status", "SUCCESS");
+
+            } catch (Exception e) {
+                handleException(e, requestContext, executedSteps, currentStepId);
+            }
+        } finally {
+            if (isRecordable) {
+                try {
+                    java.time.LocalDateTime responseTime = java.time.LocalDateTime.now();
+                    long durationMs = java.time.Duration.between(requestTime, responseTime).toMillis();
+                    String status = (String) requestContext.get("status");
+                    if (status == null) status = "FAILED";
+
+                    String responsePayloadJson;
+                    if ("SUCCESS".equals(status)) {
+                        Object responseBody = requestContext.get("responseBody");
+                        responsePayloadJson = responseBody != null ? objectMapper.writeValueAsString(responseBody) : "{}";
+                    } else {
+                        Object error = requestContext.get("error");
+                        responsePayloadJson = error != null ? objectMapper.writeValueAsString(error) : "{}";
+                    }
+
+                    com.orchestrationengine.ums.entity.ServiceRequest serviceRequest = com.orchestrationengine.ums.entity.ServiceRequest.builder()
+                            .id(com.orchestrationengine.util.SequencedUuidGenerator.generateV7())
+                            .traceId(traceId)
+                            .serviceCode(serviceCode)
+                            .requestPayload(initialRequestPayload)
+                            .responsePayload(responsePayloadJson)
+                            .status(status)
+                            .requestTime(requestTime)
+                            .responseTime(responseTime)
+                            .durationMs(durationMs)
+                            .build();
+
+                    serviceRequestRepository.save(serviceRequest);
+                    log.info("Saved service request log to database for serviceCode: {}, traceId: {}", serviceCode, traceId);
+                } catch (Exception e) {
+                    log.error("Failed to save service request audit log", e);
+                }
+            }
         }
     }
 
     private void executeStep(WorkflowStep step, Map<String, Object> ctx, WorkflowStepDefinition def) throws Exception {
         int maxRetries = def.isRetry() ? 3 : 1;
         int attempts = 0;
-        // Default timeout 10 seconds if not defined in XML
         long timeout = def.getTimeout() > 0 ? def.getTimeout() : 10000;
         Exception lastException = null;
         Future<?> future = null;
@@ -181,5 +255,34 @@ public class WorkflowExecutor {
             errorDetails.put("message", cause.getMessage());
         }
         return errorDetails;
+    }
+
+    private boolean shouldRecord(String serviceCode) {
+        if (!recordRequests) {
+            return false;
+        }
+        if (recordWorkflowsConfig == null || recordWorkflowsConfig.trim().isEmpty()) {
+            return false;
+        }
+        return Arrays.stream(recordWorkflowsConfig.split(","))
+                .map(String::trim)
+                .anyMatch(code -> code.equalsIgnoreCase(serviceCode));
+    }
+
+    private String getCleanRequestPayload(Map<String, Object> requestContext) {
+        try {
+            Map<String, Object> cleanMap = new HashMap<>(requestContext);
+            cleanMap.remove("requestPayload");
+            cleanMap.remove("password");
+            cleanMap.remove("newPassword");
+            cleanMap.remove("token");
+            cleanMap.remove("resetToken");
+            cleanMap.remove("serviceCode");
+            cleanMap.remove("traceId");
+            return objectMapper.writeValueAsString(cleanMap);
+        } catch (Exception e) {
+            log.warn("Failed to serialize request payload", e);
+            return "{}";
+        }
     }
 }

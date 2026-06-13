@@ -1,0 +1,4 @@
+<workflow serviceCode="USER_LOGIN">
+    <step id="authenticate.user" name="Authenticate Credentials" retry="false" async="false" rollback="false" timeout="5000" enable="true"/>
+    <step id="generate.auth.tokens" name="Generate JWT &amp; Session" retry="false" async="false" rollback="false" timeout="5000" enable="true"/>
+</workflow>

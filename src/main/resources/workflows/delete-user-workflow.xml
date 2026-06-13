@@ -1,0 +1,3 @@
+<workflow serviceCode="DELETE_USER">
+    <step id="delete.user.data" name="Delete User Data Cascade" retry="false" async="false" rollback="false" timeout="5000" enable="true"/>
+</workflow>

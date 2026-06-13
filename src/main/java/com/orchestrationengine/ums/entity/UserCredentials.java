@@ -21,8 +21,8 @@ public class UserCredentials {
      * Foreign key to user_profile table.
      * Establishes ownership of these credentials by a user.
      */
-    @Column(name = "user_profile_id", nullable = false, length = 30)
-    private String userProfileId;
+    @Column(name = "user_profile_id", nullable = false)
+    private java.util.UUID userProfileId;
 
     /**
      * Unique username for login purposes.

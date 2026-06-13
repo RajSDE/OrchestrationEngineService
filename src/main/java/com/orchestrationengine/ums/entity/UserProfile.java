@@ -18,8 +18,8 @@ import java.time.LocalDateTime;
 public class UserProfile {
 
     @Id
-    @Column(name = "user_profile_id", unique = true, nullable = false, length = 30)
-    private String userProfileId;
+    @Column(name = "user_profile_id", unique = true, nullable = false)
+    private java.util.UUID userProfileId;
 
     @Column(name = "first_name", length = 100)
     private String firstName;

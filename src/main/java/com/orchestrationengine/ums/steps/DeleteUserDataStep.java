@@ -1,0 +1,59 @@
+package com.orchestrationengine.ums.steps;
+
+import com.orchestrationengine.exception.WorkflowStepException;
+import com.orchestrationengine.service.WorkflowStep;
+import com.orchestrationengine.repository.UserProfileRepository;
+import com.orchestrationengine.repository.UserCredentialsRepository;
+import com.orchestrationengine.repository.UserAuthRepository;
+import com.orchestrationengine.repository.PasswordResetTokenRepository;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.Map;
+import java.util.UUID;
+
+/**
+ * Clean up user data cascading across all database tables.
+ */
+@Slf4j
+@Component("delete.user.data")
+@RequiredArgsConstructor
+public class DeleteUserDataStep implements WorkflowStep {
+
+    private final UserProfileRepository userProfileRepository;
+    private final UserCredentialsRepository userCredentialsRepository;
+    private final UserAuthRepository userAuthRepository;
+    private final PasswordResetTokenRepository passwordResetTokenRepository;
+
+    @Override
+    @Transactional
+    public void execute(Map<String, Object> context) throws Exception {
+        log.info("Deleting user data...");
+
+        String userIdStr = (String) context.get("userId");
+        if (userIdStr == null || userIdStr.trim().isEmpty()) {
+            throw new WorkflowStepException("INVALID_INPUT", "User ID is required");
+        }
+
+        UUID profileId;
+        try {
+            profileId = UUID.fromString(userIdStr);
+        } catch (IllegalArgumentException e) {
+            throw new WorkflowStepException("INVALID_USER_ID", "Invalid user ID format");
+        }
+
+        if (!userProfileRepository.existsById(profileId)) {
+            throw new WorkflowStepException("USER_NOT_FOUND", "No user found with ID: " + profileId);
+        }
+
+        // Clean up child rows manually to ensure clean ORM state
+        userAuthRepository.deleteByUserProfileId(profileId);
+        passwordResetTokenRepository.deleteByUserProfileId(profileId);
+        userCredentialsRepository.deleteByUserProfileId(profileId);
+        userProfileRepository.deleteById(profileId);
+
+        log.info("User data for ID {} deleted successfully", profileId);
+    }
+}
