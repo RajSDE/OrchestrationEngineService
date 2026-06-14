@@ -47,4 +47,39 @@ public class ControllerValidationIntegrationTest {
         assertTrue(details.containsKey("email"));
         assertTrue(details.containsKey("password"));
     }
+
+    @Test
+    public void testRegistrationDuplicateUsernameFailure() {
+        String baseUser = "dupUser_" + System.currentTimeMillis();
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("username", baseUser);
+        payload.put("email", baseUser + "@example.com");
+        payload.put("password", "Pass12345");
+        payload.put("firstName", "Dup");
+        payload.put("lastName", "User");
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        HttpEntity<Map<String, Object>> request = new HttpEntity<>(payload, headers);
+
+        ResponseEntity<Map> firstResponse = restTemplate.postForEntity("/v1/user/register", request, Map.class);
+        assertEquals(HttpStatus.CREATED, firstResponse.getStatusCode());
+
+        // Try registering again with the same username but different email
+        Map<String, Object> dupPayload = new HashMap<>(payload);
+        dupPayload.put("email", "different_" + baseUser + "@example.com");
+        HttpEntity<Map<String, Object>> dupRequest = new HttpEntity<>(dupPayload, headers);
+
+        ResponseEntity<Map> secondResponse = restTemplate.postForEntity("/v1/user/register", dupRequest, Map.class);
+        assertEquals(HttpStatus.BAD_REQUEST, secondResponse.getStatusCode());
+        assertNotNull(secondResponse.getBody());
+
+        Map<?, ?> body = secondResponse.getBody();
+        assertEquals("FAILED", body.get("status"));
+        assertNotNull(body.get("timestamp"));
+        Map<?, ?> error = (Map<?, ?>) body.get("error");
+        assertNotNull(error);
+        assertEquals("USERNAME_ALREADY_EXISTS", error.get("code"));
+        assertEquals("validate.user", error.get("component"));
+    }
 }
