@@ -46,7 +46,7 @@ public class ValidateUserStep implements WorkflowStep {
             throw new WorkflowStepException("INVALID_INPUT", "Password cannot be empty");
         }
 
-        if (username != null && !username.trim().isEmpty()) {
+        if (username != null) {
             if (userCredentialsRepository.existsByUsername(username)) {
                 throw new WorkflowStepException("USERNAME_ALREADY_EXISTS", "Username already exists: " + username);
             }
@@ -54,6 +54,13 @@ public class ValidateUserStep implements WorkflowStep {
 
         if (userProfileRepository.existsByEmail(email)) {
             throw new WorkflowStepException("EMAIL_ALREADY_EXISTS", "Email already exists: " + email);
+        }
+
+        String mobileNumber = (String) request.get("mobileNumber");
+        if (mobileNumber != null && !mobileNumber.trim().isEmpty()) {
+            if (userProfileRepository.existsByMobileNumber(mobileNumber)) {
+                throw new WorkflowStepException("MOBILE_NUMBER_ALREADY_EXISTS", "Mobile number already exists: " + mobileNumber);
+            }
         }
 
         log.info("Validation successful for username: {} and email: {}", username, email);

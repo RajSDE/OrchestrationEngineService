@@ -40,12 +40,14 @@ public class MessageCodeSeeder {
             new MessageCode(null, "USER_REGISTRATION", "SUCCESS", "User registered successfully", 201, "en"),
             new MessageCode(null, "USER_REGISTRATION", "USERNAME_ALREADY_EXISTS", "Username already exists", 409, "en"),
             new MessageCode(null, "USER_REGISTRATION", "EMAIL_ALREADY_EXISTS", "Email already exists", 409, "en"),
+            new MessageCode(null, "USER_REGISTRATION", "MOBILE_NUMBER_ALREADY_EXISTS", "Mobile number already exists", 409, "en"),
             new MessageCode(null, "USER_REGISTRATION", "INVALID_INPUT", "Invalid registration input", 400, "en"),
 
             // USER_REGISTRATION (Hindi)
             new MessageCode(null, "USER_REGISTRATION", "SUCCESS", "उपयोगकर्ता का पंजीकरण सफलतापूर्वक संपन्न हुआ", 201, "hi"),
             new MessageCode(null, "USER_REGISTRATION", "USERNAME_ALREADY_EXISTS", "उपयोगकर्ता नाम पहले से मौजूद है", 409, "hi"),
             new MessageCode(null, "USER_REGISTRATION", "EMAIL_ALREADY_EXISTS", "ईमेल पहले से मौजूद है", 409, "hi"),
+            new MessageCode(null, "USER_REGISTRATION", "MOBILE_NUMBER_ALREADY_EXISTS", "मोबाइल नंबर पहले से मौजूद है", 409, "hi"),
             new MessageCode(null, "USER_REGISTRATION", "INVALID_INPUT", "अमान्य पंजीकरण इनपुट", 400, "hi"),
 
             // USER_LOGIN (English)

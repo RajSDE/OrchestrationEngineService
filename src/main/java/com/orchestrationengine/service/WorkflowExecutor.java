@@ -147,6 +147,12 @@ public class WorkflowExecutor {
             } catch (Exception e) {
                 handleException(e, requestContext, executedSteps, currentStepId);
             }
+        } catch (Exception e) {
+            log.error("Unhandled workflow exception for serviceCode: {}", serviceCode, e);
+            Map<String, Object> errorDetails = getErrorInformation(e, "ORCHESTRATOR");
+            requestContext.put("error", errorDetails);
+            requestContext.put("status", "FAILED");
+            requestContext.put("response", errorDetails);
         } finally {
             if (isRecordable) {
                 try {
@@ -267,10 +273,11 @@ public class WorkflowExecutor {
 
         if (cause instanceof WorkflowStepException wse) {
             errorDetails.put("code", wse.getMessage());
-            errorDetails.put("message", "Validation failed");
+            String fallback = wse.getErrorMessage();
+            errorDetails.put("message", (fallback != null && !fallback.trim().isEmpty()) ? fallback : "Validation failed");
         } else {
             errorDetails.put("code", "INTERNAL_SYSTEM_ERROR");
-            errorDetails.put("message", cause.getMessage());
+            errorDetails.put("message", "An unexpected error occurred. Please try again later.");
         }
         return errorDetails;
     }

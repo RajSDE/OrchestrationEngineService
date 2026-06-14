@@ -124,4 +124,81 @@ public class GlobalExceptionHandler {
 
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(responseBody);
     }
+
+    @ExceptionHandler(org.springframework.http.converter.HttpMessageNotReadableException.class)
+    public ResponseEntity<GenericActionResponseDto> handleHttpMessageNotReadable(
+            org.springframework.http.converter.HttpMessageNotReadableException ex) {
+        String traceId = MDC.get(MdcFilter.MDC_KEY);
+        if (traceId == null) {
+            traceId = UUID.randomUUID().toString();
+        }
+
+        Map<String, Object> errorMap = new HashMap<>();
+        errorMap.put("component", "VALIDATION");
+        errorMap.put("code", "INVALID_INPUT");
+        errorMap.put("message", "Malformed JSON request body or missing parameter");
+
+        GenericActionResponseDto responseBody = new GenericActionResponseDto(
+                traceId,
+                "FAILED",
+                "Malformed JSON request body",
+                errorMap
+        );
+
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(responseBody);
+    }
+
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<GenericActionResponseDto> handleAllExceptions(Exception ex) {
+        HttpStatus status = HttpStatus.INTERNAL_SERVER_ERROR;
+        String message = "An unexpected error occurred. Please try again later.";
+
+        Throwable cause = ex;
+        while (cause != null) {
+            org.springframework.web.bind.annotation.ResponseStatus responseStatus = 
+                org.springframework.core.annotation.AnnotatedElementUtils.findMergedAnnotation(
+                    cause.getClass(), org.springframework.web.bind.annotation.ResponseStatus.class);
+            if (responseStatus != null) {
+                status = responseStatus.value();
+                message = responseStatus.reason().isEmpty() ? cause.getMessage() : responseStatus.reason();
+                break;
+            } else if (cause instanceof org.springframework.web.server.ResponseStatusException rse) {
+                status = HttpStatus.valueOf(rse.getStatusCode().value());
+                message = rse.getReason();
+                break;
+            } else if (cause instanceof org.springframework.web.HttpRequestMethodNotSupportedException) {
+                status = HttpStatus.METHOD_NOT_ALLOWED;
+                message = cause.getMessage();
+                break;
+            } else if (cause instanceof org.springframework.web.HttpMediaTypeNotSupportedException) {
+                status = HttpStatus.UNSUPPORTED_MEDIA_TYPE;
+                message = cause.getMessage();
+                break;
+            } else if (cause instanceof org.springframework.web.bind.MissingServletRequestParameterException) {
+                status = HttpStatus.BAD_REQUEST;
+                message = cause.getMessage();
+                break;
+            }
+            cause = cause.getCause();
+        }
+
+        String traceId = MDC.get(MdcFilter.MDC_KEY);
+        if (traceId == null) {
+            traceId = UUID.randomUUID().toString();
+        }
+
+        Map<String, Object> errorMap = new HashMap<>();
+        errorMap.put("component", "SYSTEM");
+        errorMap.put("code", status.is5xxServerError() ? "INTERNAL_SYSTEM_ERROR" : "BAD_REQUEST");
+        errorMap.put("message", message);
+
+        GenericActionResponseDto responseBody = new GenericActionResponseDto(
+                traceId,
+                "FAILED",
+                message,
+                errorMap
+        );
+
+        return ResponseEntity.status(status).body(responseBody);
+    }
 }
