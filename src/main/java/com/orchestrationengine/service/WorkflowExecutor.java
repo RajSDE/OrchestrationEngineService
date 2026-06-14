@@ -82,6 +82,15 @@ public class WorkflowExecutor {
         requestContext.put("traceId", traceId);
         requestContext.put("serviceCode", serviceCode);
 
+        String resolvedLang = "en";
+        if (language != null && !language.trim().isEmpty()) {
+            String[] parts = language.split("[-_]");
+            if (parts.length > 0) {
+                resolvedLang = parts[0].trim().toLowerCase();
+            }
+        }
+        requestContext.put("language", resolvedLang);
+
         boolean isRecordable = shouldRecord(serviceCode);
         java.time.LocalDateTime requestTime = java.time.LocalDateTime.now();
         String initialRequestPayload = isRecordable ? getCleanRequestPayload(requestContext) : null;

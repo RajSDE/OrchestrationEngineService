@@ -1,6 +1,8 @@
-package com.orchestrationengine.service;
+package com.orchestrationengine.notification.step;
 
+import com.orchestrationengine.service.WorkflowStep;
 import org.springframework.stereotype.Component;
+
 import java.util.Map;
 
 @Component("SEND_NOTIFICATION")

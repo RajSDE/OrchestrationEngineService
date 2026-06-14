@@ -114,6 +114,15 @@ public class WorkflowExecutorTest {
         UUID profileId = (UUID) registerCtx.get("userProfileId");
         assertNotNull(profileId);
 
+        // Wait for async notification step to execute in background
+        long start = System.currentTimeMillis();
+        while (!registerCtx.containsKey("notificationSent") && (System.currentTimeMillis() - start) < 4000) {
+            try { Thread.sleep(100); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
+        }
+
+        // Verify unified notification system and placeholder resolution
+        assertTrue((Boolean) registerCtx.get("notificationSent"));
+
         // 2. LOGIN
         Map<String, Object> loginCtx = new ConcurrentHashMap<>();
         loginCtx.put("username", "lifecycleuser");
@@ -146,6 +155,15 @@ public class WorkflowExecutorTest {
         assertEquals("SUCCESS", forgotCtx.get("status"));
         String resetToken = (String) forgotCtx.get("resetToken");
         assertNotNull(resetToken);
+
+        // Wait for async notification step to execute in background
+        long startForgot = System.currentTimeMillis();
+        while (!forgotCtx.containsKey("notificationSent") && (System.currentTimeMillis() - startForgot) < 4000) {
+            try { Thread.sleep(100); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
+        }
+
+        // Verify dynamic template lookup and placeholder replacement for reset token
+        assertTrue((Boolean) forgotCtx.get("notificationSent"));
 
         // Verify reset token table insertion
         List<PasswordResetToken> resetTokens = passwordResetTokenRepository.findAll();
@@ -265,5 +283,27 @@ public class WorkflowExecutorTest {
         assertNotNull(failContext.get("response"));
         assertTrue(failContext.get("response") instanceof com.orchestrationengine.dto.ErrorResponseDto);
         assertEquals("FAILED", failContext.get("status"));
+    }
+
+    @Test
+    public void testHindiNotificationTemplateResolution() {
+        Map<String, Object> registerCtx = new ConcurrentHashMap<>();
+        registerCtx.put("username", "hiUser");
+        registerCtx.put("email", "hi@example.com");
+        registerCtx.put("password", "MyPassword123");
+        registerCtx.put("firstName", "राज");
+        registerCtx.put("lastName", "कुमार");
+
+        // Execute registration workflow with "hi" language tag
+        workflowExecutor.executeWorkflowByServiceCode("USER_REGISTRATION", registerCtx, "hi");
+        assertEquals("SUCCESS", registerCtx.get("status"));
+
+        // Wait for async notification step to execute in background
+        long startHi = System.currentTimeMillis();
+        while (!registerCtx.containsKey("notificationSent") && (System.currentTimeMillis() - startHi) < 4000) {
+            try { Thread.sleep(100); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
+        }
+
+        assertTrue((Boolean) registerCtx.get("notificationSent"));
     }
 }

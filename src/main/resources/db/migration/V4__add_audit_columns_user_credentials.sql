@@ -7,14 +7,12 @@ ALTER TABLE user_credentials
 ALTER TABLE user_credentials
     ADD COLUMN updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
 
--- Step 2: Drop the existing foreign key constraint
-ALTER TABLE user_credentials
-DROP
-CONSTRAINT user_credentials_user_id_fkey;
+-- Step 2: Drop the existing foreign key constraint (IF EXISTS for H2 compatibility)
+ALTER TABLE user_credentials DROP CONSTRAINT IF EXISTS user_credentials_user_id_fkey;
 
 -- Step 3: Add new constraint with explicit name and schema-qualified reference
 ALTER TABLE user_credentials
     ADD CONSTRAINT fk_user_credentials_user
         FOREIGN KEY (user_id)
-            REFERENCES maindb.user_profile (id)
+            REFERENCES user_profile (id)
             ON DELETE CASCADE;

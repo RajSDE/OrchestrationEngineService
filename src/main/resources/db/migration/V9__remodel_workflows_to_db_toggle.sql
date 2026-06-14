@@ -4,9 +4,9 @@
 DROP TABLE IF EXISTS maindb.workflow_step_configuration CASCADE;
 DROP TABLE IF EXISTS maindb.workflow_definition CASCADE;
 
--- Alter column types for token storage to TEXT in user_auth and password_reset_token to support longer strings (e.g. JWT tokens)
-ALTER TABLE maindb.user_auth ALTER COLUMN refresh_token TYPE TEXT;
-ALTER TABLE maindb.password_reset_token ALTER COLUMN reset_token TYPE TEXT;
+-- Alter column types for token storage to TEXT (H2 compatible syntax)
+ALTER TABLE maindb.user_auth ALTER COLUMN refresh_token SET DATA TYPE TEXT;
+ALTER TABLE maindb.password_reset_token ALTER COLUMN reset_token SET DATA TYPE TEXT;
 
 -- Workflows metadata and runtime toggle table
 CREATE TABLE maindb.workflows
