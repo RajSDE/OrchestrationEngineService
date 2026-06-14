@@ -4,6 +4,7 @@ import com.orchestrationengine.config.MdcFilter;
 import com.orchestrationengine.config.WorkflowStepLoader;
 import com.orchestrationengine.exception.WorkflowStepException;
 import com.orchestrationengine.model.WorkflowStepDefinition;
+import com.orchestrationengine.model.ServiceRequest;
 import com.orchestrationengine.repository.WorkflowRepository;
 import com.orchestrationengine.repository.ServiceRequestRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -147,7 +148,7 @@ public class WorkflowExecutor {
                         responsePayloadJson = error != null ? objectMapper.writeValueAsString(error) : "{}";
                     }
 
-                    com.orchestrationengine.ums.entity.ServiceRequest serviceRequest = com.orchestrationengine.ums.entity.ServiceRequest.builder()
+                    ServiceRequest serviceRequest = ServiceRequest.builder()
                             .id(com.orchestrationengine.util.SequencedUuidGenerator.generateV7())
                             .traceId(traceId)
                             .serviceCode(serviceCode)

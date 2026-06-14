@@ -1,6 +1,7 @@
 package com.orchestrationengine;
 
 import com.orchestrationengine.repository.*;
+import com.orchestrationengine.ums.repository.*;
 import com.orchestrationengine.service.WorkflowExecutor;
 import com.orchestrationengine.ums.entity.UserAuth;
 import com.orchestrationengine.ums.entity.UserCredentials;

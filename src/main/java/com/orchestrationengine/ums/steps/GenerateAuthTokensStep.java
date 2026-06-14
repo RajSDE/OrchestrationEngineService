@@ -1,7 +1,7 @@
 package com.orchestrationengine.ums.steps;
 
 import com.orchestrationengine.service.WorkflowStep;
-import com.orchestrationengine.repository.UserAuthRepository;
+import com.orchestrationengine.ums.repository.UserAuthRepository;
 import com.orchestrationengine.ums.entity.UserAuth;
 import com.orchestrationengine.ums.service.JwtTokenService;
 import lombok.RequiredArgsConstructor;

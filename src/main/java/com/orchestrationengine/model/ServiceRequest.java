@@ -1,4 +1,4 @@
-package com.orchestrationengine.ums.entity;
+package com.orchestrationengine.model;
 
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;

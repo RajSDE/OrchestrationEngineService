@@ -1,7 +1,7 @@
 package com.orchestrationengine.ums.steps;
 
 import com.orchestrationengine.service.WorkflowStep;
-import com.orchestrationengine.repository.UserProfileRepository;
+import com.orchestrationengine.ums.repository.UserProfileRepository;
 import com.orchestrationengine.ums.entity.UserProfile;
 import com.orchestrationengine.util.SequencedUuidGenerator;
 import lombok.RequiredArgsConstructor;

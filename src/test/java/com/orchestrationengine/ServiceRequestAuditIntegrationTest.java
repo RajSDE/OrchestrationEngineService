@@ -2,7 +2,7 @@ package com.orchestrationengine;
 
 import com.orchestrationengine.repository.ServiceRequestRepository;
 import com.orchestrationengine.service.WorkflowExecutor;
-import com.orchestrationengine.ums.entity.ServiceRequest;
+import com.orchestrationengine.model.ServiceRequest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;

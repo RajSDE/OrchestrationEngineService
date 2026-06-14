@@ -2,7 +2,7 @@ package com.orchestrationengine.ums.steps;
 
 import com.orchestrationengine.exception.WorkflowStepException;
 import com.orchestrationengine.service.WorkflowStep;
-import com.orchestrationengine.repository.UserCredentialsRepository;
+import com.orchestrationengine.ums.repository.UserCredentialsRepository;
 import com.orchestrationengine.ums.entity.UserCredentials;
 import com.orchestrationengine.ums.service.PasswordHashingService;
 import lombok.RequiredArgsConstructor;

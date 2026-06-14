@@ -2,8 +2,8 @@ package com.orchestrationengine.ums.steps;
 
 import com.orchestrationengine.exception.WorkflowStepException;
 import com.orchestrationengine.service.WorkflowStep;
-import com.orchestrationengine.repository.UserProfileRepository;
-import com.orchestrationengine.repository.PasswordResetTokenRepository;
+import com.orchestrationengine.ums.repository.UserProfileRepository;
+import com.orchestrationengine.ums.repository.PasswordResetTokenRepository;
 import com.orchestrationengine.ums.entity.UserProfile;
 import com.orchestrationengine.ums.entity.PasswordResetToken;
 import lombok.RequiredArgsConstructor;

@@ -1,4 +1,4 @@
-package com.orchestrationengine.ums.controller;
+package com.orchestrationengine.controller;
 
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;

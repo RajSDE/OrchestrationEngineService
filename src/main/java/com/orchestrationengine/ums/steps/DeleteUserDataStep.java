@@ -2,10 +2,10 @@ package com.orchestrationengine.ums.steps;
 
 import com.orchestrationengine.exception.WorkflowStepException;
 import com.orchestrationengine.service.WorkflowStep;
-import com.orchestrationengine.repository.UserProfileRepository;
-import com.orchestrationengine.repository.UserCredentialsRepository;
-import com.orchestrationengine.repository.UserAuthRepository;
-import com.orchestrationengine.repository.PasswordResetTokenRepository;
+import com.orchestrationengine.ums.repository.UserProfileRepository;
+import com.orchestrationengine.ums.repository.UserCredentialsRepository;
+import com.orchestrationengine.ums.repository.UserAuthRepository;
+import com.orchestrationengine.ums.repository.PasswordResetTokenRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;

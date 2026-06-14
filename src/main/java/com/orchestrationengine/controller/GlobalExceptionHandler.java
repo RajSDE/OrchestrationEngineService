@@ -1,7 +1,7 @@
-package com.orchestrationengine.ums.controller;
+package com.orchestrationengine.controller;
 
 import com.orchestrationengine.config.MdcFilter;
-import com.orchestrationengine.ums.dto.GenericActionResponseDto;
+import com.orchestrationengine.dto.GenericActionResponseDto;
 import org.slf4j.MDC;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;

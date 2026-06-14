@@ -1,4 +1,4 @@
-package com.orchestrationengine.ums.dto;
+package com.orchestrationengine.dto;
 
 import java.util.Map;
 

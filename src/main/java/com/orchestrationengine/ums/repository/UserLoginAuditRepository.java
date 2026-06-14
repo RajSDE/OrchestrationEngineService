@@ -1,4 +1,4 @@
-package com.orchestrationengine.repository;
+package com.orchestrationengine.ums.repository;
 
 import com.orchestrationengine.ums.entity.UserLoginAudit;
 import org.springframework.data.jpa.repository.JpaRepository;
