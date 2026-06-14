@@ -2,10 +2,10 @@ package com.orchestrationengine.ums.steps;
 
 import com.orchestrationengine.exception.WorkflowStepException;
 import com.orchestrationengine.service.WorkflowStep;
-import com.orchestrationengine.ums.repository.UserCredentialsRepository;
-import com.orchestrationengine.ums.repository.PasswordResetTokenRepository;
-import com.orchestrationengine.ums.entity.UserCredentials;
 import com.orchestrationengine.ums.entity.PasswordResetToken;
+import com.orchestrationengine.ums.entity.UserCredentials;
+import com.orchestrationengine.ums.repository.PasswordResetTokenRepository;
+import com.orchestrationengine.ums.repository.UserCredentialsRepository;
 import com.orchestrationengine.ums.service.PasswordHashingService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -22,6 +22,7 @@ import java.util.UUID;
 @Slf4j
 @Component("update.password")
 @RequiredArgsConstructor
+@SuppressWarnings("unchecked")
 public class UpdatePasswordStep implements WorkflowStep {
 
     private final UserCredentialsRepository userCredentialsRepository;
@@ -45,7 +46,12 @@ public class UpdatePasswordStep implements WorkflowStep {
             throw new IllegalStateException("UserProfileId not found in workflow context");
         }
 
-        String newPassword = (String) context.get("newPassword");
+        Map<String, Object> request = (Map<String, Object>) context.get("request");
+        if (request == null) {
+            request = context;
+        }
+
+        String newPassword = (String) request.get("newPassword");
         if (newPassword == null || newPassword.trim().isEmpty()) {
             throw new WorkflowStepException("INVALID_INPUT", "New password is required");
         }

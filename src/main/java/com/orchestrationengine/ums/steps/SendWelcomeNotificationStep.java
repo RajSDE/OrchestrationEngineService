@@ -1,6 +1,7 @@
 package com.orchestrationengine.ums.steps;
 
 import com.orchestrationengine.service.WorkflowStep;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
@@ -12,14 +13,21 @@ import java.util.Map;
  */
 @Slf4j
 @Component("send.welcome.notification")
+@RequiredArgsConstructor
+@SuppressWarnings("unchecked")
 public class SendWelcomeNotificationStep implements WorkflowStep {
 
     @Override
     public void execute(Map<String, Object> context) throws Exception {
         log.info("Preparing to send welcome notification...");
         
-        String username = (String) context.get("username");
-        String email = (String) context.get("email");
+        Map<String, Object> request = (Map<String, Object>) context.get("request");
+        if (request == null) {
+            request = context;
+        }
+
+        String username = (String) request.get("username");
+        String email = (String) request.get("email");
 
         if (email == null) {
             log.warn("Cannot send notification: email is missing in context.");

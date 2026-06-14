@@ -5,6 +5,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
+
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -21,6 +22,8 @@ public class WorkflowController {
                                            @RequestHeader(value = HttpHeaders.ACCEPT_LANGUAGE, required = false) String language) {
         if (context == null) context = new ConcurrentHashMap<>();
         else context = new ConcurrentHashMap<>(context);
+        Map<String, Object> originalRequest = new HashMap<>(context);
+        context.put("request", originalRequest);
         workflowExecutor.executeWorkflowByServiceCode(serviceCode, context, language);
         return context;
     }

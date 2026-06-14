@@ -2,8 +2,8 @@ package com.orchestrationengine.ums.steps;
 
 import com.orchestrationengine.exception.WorkflowStepException;
 import com.orchestrationengine.service.WorkflowStep;
-import com.orchestrationengine.ums.repository.PasswordResetTokenRepository;
 import com.orchestrationengine.ums.entity.PasswordResetToken;
+import com.orchestrationengine.ums.repository.PasswordResetTokenRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -17,6 +17,7 @@ import java.util.Map;
 @Slf4j
 @Component("verify.reset.token")
 @RequiredArgsConstructor
+@SuppressWarnings("unchecked")
 public class VerifyResetTokenStep implements WorkflowStep {
 
     private final PasswordResetTokenRepository passwordResetTokenRepository;
@@ -25,7 +26,12 @@ public class VerifyResetTokenStep implements WorkflowStep {
     public void execute(Map<String, Object> context) throws Exception {
         log.info("Verifying password reset token...");
 
-        String token = (String) context.get("token");
+        Map<String, Object> request = (Map<String, Object>) context.get("request");
+        if (request == null) {
+            request = context;
+        }
+
+        String token = (String) request.get("token");
         if (token == null || token.trim().isEmpty()) {
             throw new WorkflowStepException("INVALID_INPUT", "Token is required");
         }

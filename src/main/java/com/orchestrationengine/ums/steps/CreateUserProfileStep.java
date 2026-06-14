@@ -1,8 +1,8 @@
 package com.orchestrationengine.ums.steps;
 
 import com.orchestrationengine.service.WorkflowStep;
-import com.orchestrationengine.ums.repository.UserProfileRepository;
 import com.orchestrationengine.ums.entity.UserProfile;
+import com.orchestrationengine.ums.repository.UserProfileRepository;
 import com.orchestrationengine.util.SequencedUuidGenerator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -18,6 +18,7 @@ import java.util.UUID;
 @Slf4j
 @Component("create.user.profile")
 @RequiredArgsConstructor
+@SuppressWarnings("unchecked")
 public class CreateUserProfileStep implements WorkflowStep {
 
     private final UserProfileRepository userProfileRepository;
@@ -26,14 +27,19 @@ public class CreateUserProfileStep implements WorkflowStep {
     public void execute(Map<String, Object> context) throws Exception {
         log.info("Creating user profile in database...");
 
+        Map<String, Object> request = (Map<String, Object>) context.get("request");
+        if (request == null) {
+            request = context;
+        }
+
         UUID profileId = SequencedUuidGenerator.generateV7();
-        String email = (String) context.get("email");
-        String firstName = (String) context.get("firstName");
-        String middleName = (String) context.get("middleName");
-        String lastName = (String) context.get("lastName");
-        String mobileNumber = (String) context.get("mobileNumber");
-        String preferredLanguage = (String) context.get("preferredLanguage");
-        String gender = (String) context.get("gender");
+        String email = (String) request.get("email");
+        String firstName = (String) request.get("firstName");
+        String middleName = (String) request.get("middleName");
+        String lastName = (String) request.get("lastName");
+        String mobileNumber = (String) request.get("mobileNumber");
+        String preferredLanguage = (String) request.get("preferredLanguage");
+        String gender = (String) request.get("gender");
 
         String fullName = (firstName != null ? firstName : "") + 
                            (middleName != null && !middleName.trim().isEmpty() ? " " + middleName : "") + 
@@ -54,6 +60,7 @@ public class CreateUserProfileStep implements WorkflowStep {
 
         userProfileRepository.save(profile);
         context.put("userProfileId", profileId);
+        context.put("userProfile", profile);
         log.info("User profile successfully created with ID: {}", profileId);
     }
 
@@ -75,6 +82,7 @@ public class CreateUserProfileStep implements WorkflowStep {
                 log.info("Compensating Transaction: Deleting user profile ID: {}", profileId);
                 userProfileRepository.deleteById(profileId);
                 context.remove("userProfileId");
+                context.remove("userProfile");
             }
         }
     }

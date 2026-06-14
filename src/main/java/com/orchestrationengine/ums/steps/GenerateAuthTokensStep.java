@@ -1,8 +1,8 @@
 package com.orchestrationengine.ums.steps;
 
 import com.orchestrationengine.service.WorkflowStep;
-import com.orchestrationengine.ums.repository.UserAuthRepository;
 import com.orchestrationengine.ums.entity.UserAuth;
+import com.orchestrationengine.ums.repository.UserAuthRepository;
 import com.orchestrationengine.ums.service.JwtTokenService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -18,6 +18,7 @@ import java.util.UUID;
 @Slf4j
 @Component("generate.auth.tokens")
 @RequiredArgsConstructor
+@SuppressWarnings("unchecked")
 public class GenerateAuthTokensStep implements WorkflowStep {
 
     private final JwtTokenService jwtTokenService;
@@ -39,7 +40,12 @@ public class GenerateAuthTokensStep implements WorkflowStep {
             throw new IllegalStateException("UserProfileId not found in workflow context");
         }
 
-        String username = (String) context.get("username");
+        Map<String, Object> request = (Map<String, Object>) context.get("request");
+        if (request == null) {
+            request = context;
+        }
+
+        String username = (String) request.get("username");
 
         String accessToken = jwtTokenService.generateAccessToken(profileId, username);
         String refreshToken = jwtTokenService.generateRefreshToken(profileId);

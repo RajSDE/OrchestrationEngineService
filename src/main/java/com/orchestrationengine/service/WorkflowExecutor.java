@@ -72,6 +72,9 @@ public class WorkflowExecutor {
     }
 
     public void executeWorkflowByServiceCode(String serviceCode, Map<String, Object> requestContext, String language) {
+        if (!requestContext.containsKey("request")) {
+            requestContext.put("request", new HashMap<>(requestContext));
+        }
         String traceId = MDC.get(MdcFilter.MDC_KEY);
         if (traceId == null) {
             traceId = java.util.UUID.randomUUID().toString();
@@ -138,6 +141,8 @@ public class WorkflowExecutor {
                     }
                 }
                 requestContext.put("status", "SUCCESS");
+                Object responseBody = requestContext.get("responseBody");
+                requestContext.put("response", responseBody != null ? responseBody : Map.of());
 
             } catch (Exception e) {
                 handleException(e, requestContext, executedSteps, currentStepId);
@@ -226,6 +231,7 @@ public class WorkflowExecutor {
         Map<String, Object> errorDetails = getErrorInformation(e, failedComponentId);
         requestContext.put("error", errorDetails);
         requestContext.put("status", "FAILED");
+        requestContext.put("response", errorDetails);
 
         for (int i = executedSteps.size() - 1; i >= 0; i--) {
             ExecutedStep item = executedSteps.get(i);
@@ -250,6 +256,7 @@ public class WorkflowExecutor {
         error.put("message", message);
         ctx.put("error", error);
         ctx.put("status", "FAILED");
+        ctx.put("response", error);
     }
 
     private static Map<String, Object> getErrorInformation(Exception e, String failedComponentId) {
@@ -284,6 +291,7 @@ public class WorkflowExecutor {
         try {
             Map<String, Object> cleanMap = new HashMap<>(requestContext);
             cleanMap.remove("requestPayload");
+            cleanMap.remove("request");
             cleanMap.remove("password");
             cleanMap.remove("newPassword");
             cleanMap.remove("token");
@@ -336,6 +344,7 @@ public class WorkflowExecutor {
             if (body instanceof GenericActionResponseDto genericDto && finalMessage != null) {
                 body = new GenericActionResponseDto(genericDto.traceId(), genericDto.status(), finalMessage, null);
             }
+            context.put("response", body);
             return ResponseEntity.status(finalStatus).body(body);
         } else {
             Map<String, Object> errorMap = (Map<String, Object>) context.get("error");
@@ -364,6 +373,7 @@ public class WorkflowExecutor {
                 LocalDateTime.now(),
                 errorMap
             );
+            context.put("response", errorResponse);
             return ResponseEntity.status(failureStatus).body(errorResponse);
         }
     }

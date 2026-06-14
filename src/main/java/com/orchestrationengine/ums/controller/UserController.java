@@ -75,6 +75,7 @@ public class UserController {
             @PathVariable UUID userId) {
         Map<String, Object> context = new ConcurrentHashMap<>();
         context.put("userId", userId.toString());
+        context.put("request", Map.of("userId", userId.toString()));
         String lang = resolveLanguage(acceptLanguage, null);
         return workflowExecutor.executeAndResponse("DELETE_USER", context, lang, HttpStatus.OK, GenericActionResponseDto.class, "User deleted successfully");
     }
@@ -91,6 +92,7 @@ public class UserController {
             @PathVariable UUID userId) {
         Map<String, Object> context = new ConcurrentHashMap<>();
         context.put("userId", userId.toString());
+        context.put("request", Map.of("userId", userId.toString()));
         String lang = resolveLanguage(acceptLanguage, null);
         return workflowExecutor.executeAndResponse("DEACTIVATE_USER", context, lang, HttpStatus.OK, GenericActionResponseDto.class, "User deactivated successfully");
     }
@@ -134,6 +136,7 @@ public class UserController {
             }
         });
         context.put("requestPayload", request);
+        context.put("request", map);
         return context;
     }
 

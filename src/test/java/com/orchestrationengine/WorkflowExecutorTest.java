@@ -1,19 +1,21 @@
 package com.orchestrationengine;
 
-import com.orchestrationengine.repository.*;
-import com.orchestrationengine.ums.repository.*;
-import com.orchestrationengine.service.WorkflowExecutor;
-import com.orchestrationengine.ums.entity.UserAuth;
-import com.orchestrationengine.ums.entity.UserCredentials;
-import com.orchestrationengine.ums.entity.UserProfile;
-import com.orchestrationengine.ums.entity.PasswordResetToken;
-import com.orchestrationengine.ums.service.JwtTokenService;
 import com.auth0.jwt.interfaces.DecodedJWT;
+import com.orchestrationengine.repository.WorkflowRepository;
+import com.orchestrationengine.service.WorkflowExecutor;
+import com.orchestrationengine.ums.entity.PasswordResetToken;
+import com.orchestrationengine.ums.entity.UserAuth;
+import com.orchestrationengine.ums.repository.PasswordResetTokenRepository;
+import com.orchestrationengine.ums.repository.UserAuthRepository;
+import com.orchestrationengine.ums.repository.UserCredentialsRepository;
+import com.orchestrationengine.ums.repository.UserProfileRepository;
+import com.orchestrationengine.ums.service.JwtTokenService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -200,5 +202,68 @@ public class WorkflowExecutorTest {
         assertEquals(0, userCredentialsRepository.count());
         assertEquals(0, userAuthRepository.count());
         assertEquals(0, passwordResetTokenRepository.count());
+    }
+
+    @Test
+    public void testRequestContextMapPreservation() {
+        // 1. Success case
+        Map<String, Object> context = new ConcurrentHashMap<>();
+        
+        Map<String, Object> originalRequest = new HashMap<>();
+        originalRequest.put("username", "contextuser");
+        originalRequest.put("email", "context@example.com");
+        originalRequest.put("password", "Pass12345");
+        originalRequest.put("firstName", "Context");
+        originalRequest.put("lastName", "Tester");
+        originalRequest.put("preferredLanguage", "en");
+        originalRequest.put("gender", "MALE");
+        originalRequest.put("mobileNumber", "+1999999999");
+        context.put("request", originalRequest);
+
+        org.springframework.http.ResponseEntity<?> responseEntity = workflowExecutor.executeAndResponse(
+            "USER_REGISTRATION",
+            context,
+            "en",
+            org.springframework.http.HttpStatus.CREATED,
+            com.orchestrationengine.ums.dto.UserRegistrationResponseDto.class,
+            null
+        );
+
+        assertEquals(originalRequest, context.get("request"));
+        assertNotNull(context.get("response"));
+        assertTrue(context.get("response") instanceof com.orchestrationengine.ums.dto.UserRegistrationResponseDto);
+        assertEquals("SUCCESS", context.get("status"));
+        
+        // Assert userProfile is in the context
+        assertNotNull(context.get("userProfile"));
+        assertTrue(context.get("userProfile") instanceof com.orchestrationengine.ums.entity.UserProfile);
+
+        // 2. Failure case
+        Map<String, Object> failContext = new ConcurrentHashMap<>();
+        
+        Map<String, Object> failRequest = new HashMap<>();
+        failRequest.put("username", "ab"); // too short (fails validation step)
+        failRequest.put("email", "context@example.com");
+        failRequest.put("password", "Pass12345");
+        failRequest.put("firstName", "Context");
+        failRequest.put("lastName", "Tester");
+        failRequest.put("preferredLanguage", "en");
+        failRequest.put("gender", "MALE");
+        failRequest.put("mobileNumber", "+1999999999");
+        failContext.put("request", failRequest);
+
+        org.springframework.http.ResponseEntity<?> failResponseEntity = workflowExecutor.executeAndResponse(
+            "USER_REGISTRATION",
+            failContext,
+            "en",
+            org.springframework.http.HttpStatus.CREATED,
+            com.orchestrationengine.ums.dto.UserRegistrationResponseDto.class,
+            null
+        );
+
+        assertEquals(failRequest, failContext.get("request"));
+        assertNotNull(failContext.get("response"));
+        assertTrue(failContext.get("response") instanceof com.orchestrationengine.dto.ErrorResponseDto);
+        assertEquals("FAILED", failContext.get("status"));
     }
 }

@@ -231,4 +231,35 @@ public class ControllerValidationIntegrationTest {
         assertEquals("VALIDATION", error.get("component"));
         assertEquals("INVALID_INPUT", error.get("code"));
     }
+
+    @Test
+    public void testWorkflowControllerRequestResponsePreservation() {
+        String baseUser = "wfUser_" + System.currentTimeMillis();
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("username", baseUser);
+        payload.put("email", baseUser + "@example.com");
+        payload.put("password", "Pass12345");
+        payload.put("firstName", "Wf");
+        payload.put("lastName", "User");
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        HttpEntity<Map<String, Object>> request = new HttpEntity<>(payload, headers);
+
+        ResponseEntity<Map> response = restTemplate.postForEntity("/v1/serviceflow/USER_REGISTRATION", request, Map.class);
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertNotNull(response.getBody());
+
+        Map<?, ?> body = response.getBody();
+        assertEquals("SUCCESS", body.get("status"));
+
+        // Verify request key contains the original input payload keys
+        Map<?, ?> preservedRequest = (Map<?, ?>) body.get("request");
+        assertNotNull(preservedRequest);
+        assertEquals(baseUser, preservedRequest.get("username"));
+        assertEquals(baseUser + "@example.com", preservedRequest.get("email"));
+
+        // Verify response key is present
+        assertNotNull(body.get("response"));
+    }
 }

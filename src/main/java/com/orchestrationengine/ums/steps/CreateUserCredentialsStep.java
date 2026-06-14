@@ -18,6 +18,7 @@ import java.util.UUID;
 @Slf4j
 @Component("create.user.credentials")
 @RequiredArgsConstructor
+@SuppressWarnings("unchecked")
 public class CreateUserCredentialsStep implements WorkflowStep {
 
     private final UserCredentialsRepository userCredentialsRepository;
@@ -39,11 +40,16 @@ public class CreateUserCredentialsStep implements WorkflowStep {
             throw new IllegalStateException("UserProfileId not found in workflow context");
         }
 
-        String username = (String) context.get("username");
+        Map<String, Object> request = (Map<String, Object>) context.get("request");
+        if (request == null) {
+            request = context;
+        }
+
+        String username = (String) request.get("username");
         if (username != null && username.trim().isEmpty()) {
             username = null;
         }
-        String password = (String) context.get("password");
+        String password = (String) request.get("password");
 
         String passwordHash = passwordHashingService.hashPassword(password);
 

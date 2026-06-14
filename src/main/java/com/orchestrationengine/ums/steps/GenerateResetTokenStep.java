@@ -2,10 +2,10 @@ package com.orchestrationengine.ums.steps;
 
 import com.orchestrationengine.exception.WorkflowStepException;
 import com.orchestrationengine.service.WorkflowStep;
-import com.orchestrationengine.ums.repository.UserProfileRepository;
-import com.orchestrationengine.ums.repository.PasswordResetTokenRepository;
-import com.orchestrationengine.ums.entity.UserProfile;
 import com.orchestrationengine.ums.entity.PasswordResetToken;
+import com.orchestrationengine.ums.entity.UserProfile;
+import com.orchestrationengine.ums.repository.PasswordResetTokenRepository;
+import com.orchestrationengine.ums.repository.UserProfileRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -20,6 +20,7 @@ import java.util.UUID;
 @Slf4j
 @Component("generate.reset.token")
 @RequiredArgsConstructor
+@SuppressWarnings("unchecked")
 public class GenerateResetTokenStep implements WorkflowStep {
 
     private final UserProfileRepository userProfileRepository;
@@ -29,7 +30,12 @@ public class GenerateResetTokenStep implements WorkflowStep {
     public void execute(Map<String, Object> context) throws Exception {
         log.info("Generating password reset token...");
 
-        String email = (String) context.get("email");
+        Map<String, Object> request = (Map<String, Object>) context.get("request");
+        if (request == null) {
+            request = context;
+        }
+
+        String email = (String) request.get("email");
         if (email == null || email.trim().isEmpty()) {
             throw new WorkflowStepException("INVALID_INPUT", "Email is required");
         }
@@ -49,6 +55,7 @@ public class GenerateResetTokenStep implements WorkflowStep {
         passwordResetTokenRepository.save(resetTokenEntity);
 
         context.put("userProfileId", profile.getUserProfileId());
+        context.put("userProfile", profile);
         context.put("resetToken", token);
 
         log.info("Password reset token generated and saved for email: {}", email);

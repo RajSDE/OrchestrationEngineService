@@ -2,10 +2,10 @@ package com.orchestrationengine.ums.steps;
 
 import com.orchestrationengine.exception.WorkflowStepException;
 import com.orchestrationengine.service.WorkflowStep;
-import com.orchestrationengine.ums.repository.UserProfileRepository;
-import com.orchestrationengine.ums.repository.UserCredentialsRepository;
-import com.orchestrationengine.ums.repository.UserAuthRepository;
 import com.orchestrationengine.ums.repository.PasswordResetTokenRepository;
+import com.orchestrationengine.ums.repository.UserAuthRepository;
+import com.orchestrationengine.ums.repository.UserCredentialsRepository;
+import com.orchestrationengine.ums.repository.UserProfileRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -20,6 +20,7 @@ import java.util.UUID;
 @Slf4j
 @Component("delete.user.data")
 @RequiredArgsConstructor
+@SuppressWarnings("unchecked")
 public class DeleteUserDataStep implements WorkflowStep {
 
     private final UserProfileRepository userProfileRepository;
@@ -32,7 +33,12 @@ public class DeleteUserDataStep implements WorkflowStep {
     public void execute(Map<String, Object> context) throws Exception {
         log.info("Deleting user data...");
 
-        String userIdStr = (String) context.get("userId");
+        Map<String, Object> request = (Map<String, Object>) context.get("request");
+        if (request == null) {
+            request = context;
+        }
+
+        String userIdStr = (String) request.get("userId");
         if (userIdStr == null || userIdStr.trim().isEmpty()) {
             throw new WorkflowStepException("INVALID_INPUT", "User ID is required");
         }

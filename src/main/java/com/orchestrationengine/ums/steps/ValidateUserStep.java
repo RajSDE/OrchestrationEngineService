@@ -16,6 +16,7 @@ import java.util.Map;
 @Slf4j
 @Component("validate.user")
 @RequiredArgsConstructor
+@SuppressWarnings("unchecked")
 public class ValidateUserStep implements WorkflowStep {
 
     private final UserProfileRepository userProfileRepository;
@@ -25,13 +26,18 @@ public class ValidateUserStep implements WorkflowStep {
     public void execute(Map<String, Object> context) throws Exception {
         log.info("Validating user registration payload...");
 
-        String username = (String) context.get("username");
+        Map<String, Object> request = (Map<String, Object>) context.get("request");
+        if (request == null) {
+            request = context;
+        }
+
+        String username = (String) request.get("username");
         if (username != null && username.trim().isEmpty()) {
             context.remove("username");
             username = null;
         }
-        String email = (String) context.get("email");
-        String password = (String) context.get("password");
+        String email = (String) request.get("email");
+        String password = (String) request.get("password");
 
         if (email == null || email.trim().isEmpty()) {
             throw new WorkflowStepException("INVALID_INPUT", "Email cannot be empty");
