@@ -149,7 +149,6 @@ public class WorkflowExecutor {
                     }
 
                     ServiceRequest serviceRequest = ServiceRequest.builder()
-                            .id(com.orchestrationengine.util.SequencedUuidGenerator.generateV7())
                             .traceId(traceId)
                             .serviceCode(serviceCode)
                             .requestPayload(initialRequestPayload)
