@@ -43,24 +43,7 @@ public class UserController {
     public ResponseEntity<?> registerUser(@Valid @RequestBody UserRegistrationRequest request) {
         Map<String, Object> context = toContextMap(request);
         String lang = request.preferredLanguage() != null ? request.preferredLanguage() : "en";
-        workflowExecutor.executeWorkflowByServiceCode("USER_REGISTRATION", context, lang);
-
-        String status = (String) context.get("status");
-
-        if ("SUCCESS".equals(status)) {
-            UserRegistrationResponseDto body = objectMapper.convertValue(context, UserRegistrationResponseDto.class);
-            return ResponseEntity.status(HttpStatus.CREATED).body(body);
-        } else {
-            Map<String, Object> errorMap = (Map<String, Object>) context.get("error");
-            String traceId = (String) context.get("traceId");
-            ErrorResponseDto errorResponse = new ErrorResponseDto(
-                traceId,
-                "FAILED",
-                LocalDateTime.now(),
-                errorMap
-            );
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
-        }
+        return workflowExecutor.executeAndResponse("USER_REGISTRATION", context, lang, HttpStatus.CREATED, UserRegistrationResponseDto.class, null);
     }
 
     @PostMapping("/login")
@@ -71,24 +54,7 @@ public class UserController {
     })
     public ResponseEntity<?> loginUser(@Valid @RequestBody UserLoginRequest request) {
         Map<String, Object> context = toContextMap(request);
-        workflowExecutor.executeWorkflowByServiceCode("USER_LOGIN", context, "en");
-
-        String status = (String) context.get("status");
-
-        if ("SUCCESS".equals(status)) {
-            UserLoginResponseDto body = objectMapper.convertValue(context, UserLoginResponseDto.class);
-            return ResponseEntity.ok(body);
-        } else {
-            Map<String, Object> errorMap = (Map<String, Object>) context.get("error");
-            String traceId = (String) context.get("traceId");
-            ErrorResponseDto errorResponse = new ErrorResponseDto(
-                traceId,
-                "FAILED",
-                LocalDateTime.now(),
-                errorMap
-            );
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(errorResponse);
-        }
+        return workflowExecutor.executeAndResponse("USER_LOGIN", context, "en", HttpStatus.OK, UserLoginResponseDto.class, null);
     }
 
     @DeleteMapping("/{userId}")
@@ -100,26 +66,7 @@ public class UserController {
     public ResponseEntity<?> deleteUser(@PathVariable UUID userId) {
         Map<String, Object> context = new ConcurrentHashMap<>();
         context.put("userId", userId.toString());
-
-        workflowExecutor.executeWorkflowByServiceCode("DELETE_USER", context, "en");
-
-        String status = (String) context.get("status");
-
-        if ("SUCCESS".equals(status)) {
-            GenericActionResponseDto body = objectMapper.convertValue(context, GenericActionResponseDto.class);
-            body = new GenericActionResponseDto(body.traceId(), body.status(), "User deleted successfully", null);
-            return ResponseEntity.ok(body);
-        } else {
-            Map<String, Object> errorMap = (Map<String, Object>) context.get("error");
-            String traceId = (String) context.get("traceId");
-            ErrorResponseDto errorResponse = new ErrorResponseDto(
-                traceId,
-                "FAILED",
-                LocalDateTime.now(),
-                errorMap
-            );
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
-        }
+        return workflowExecutor.executeAndResponse("DELETE_USER", context, "en", HttpStatus.OK, GenericActionResponseDto.class, "User deleted successfully");
     }
 
     @PostMapping("/{userId}/deactivate")
@@ -131,26 +78,7 @@ public class UserController {
     public ResponseEntity<?> deactivateUser(@PathVariable UUID userId) {
         Map<String, Object> context = new ConcurrentHashMap<>();
         context.put("userId", userId.toString());
-
-        workflowExecutor.executeWorkflowByServiceCode("DEACTIVATE_USER", context, "en");
-
-        String status = (String) context.get("status");
-
-        if ("SUCCESS".equals(status)) {
-            GenericActionResponseDto body = objectMapper.convertValue(context, GenericActionResponseDto.class);
-            body = new GenericActionResponseDto(body.traceId(), body.status(), "User deactivated successfully", null);
-            return ResponseEntity.ok(body);
-        } else {
-            Map<String, Object> errorMap = (Map<String, Object>) context.get("error");
-            String traceId = (String) context.get("traceId");
-            ErrorResponseDto errorResponse = new ErrorResponseDto(
-                traceId,
-                "FAILED",
-                LocalDateTime.now(),
-                errorMap
-            );
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
-        }
+        return workflowExecutor.executeAndResponse("DEACTIVATE_USER", context, "en", HttpStatus.OK, GenericActionResponseDto.class, "User deactivated successfully");
     }
 
     @PostMapping("/forgot-password")
@@ -161,25 +89,7 @@ public class UserController {
     })
     public ResponseEntity<?> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
         Map<String, Object> context = toContextMap(request);
-        workflowExecutor.executeWorkflowByServiceCode("FORGOT_PASSWORD", context, "en");
-
-        String status = (String) context.get("status");
-
-        if ("SUCCESS".equals(status)) {
-            GenericActionResponseDto body = objectMapper.convertValue(context, GenericActionResponseDto.class);
-            body = new GenericActionResponseDto(body.traceId(), body.status(), "Password reset notification sent successfully", null);
-            return ResponseEntity.ok(body);
-        } else {
-            Map<String, Object> errorMap = (Map<String, Object>) context.get("error");
-            String traceId = (String) context.get("traceId");
-            ErrorResponseDto errorResponse = new ErrorResponseDto(
-                traceId,
-                "FAILED",
-                LocalDateTime.now(),
-                errorMap
-            );
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
-        }
+        return workflowExecutor.executeAndResponse("FORGOT_PASSWORD", context, "en", HttpStatus.OK, GenericActionResponseDto.class, "Password reset notification sent successfully");
     }
 
     @PostMapping("/reset-password")
@@ -190,25 +100,7 @@ public class UserController {
     })
     public ResponseEntity<?> resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
         Map<String, Object> context = toContextMap(request);
-        workflowExecutor.executeWorkflowByServiceCode("RESET_PASSWORD", context, "en");
-
-        String status = (String) context.get("status");
-
-        if ("SUCCESS".equals(status)) {
-            GenericActionResponseDto body = objectMapper.convertValue(context, GenericActionResponseDto.class);
-            body = new GenericActionResponseDto(body.traceId(), body.status(), "Password updated successfully", null);
-            return ResponseEntity.ok(body);
-        } else {
-            Map<String, Object> errorMap = (Map<String, Object>) context.get("error");
-            String traceId = (String) context.get("traceId");
-            ErrorResponseDto errorResponse = new ErrorResponseDto(
-                traceId,
-                "FAILED",
-                LocalDateTime.now(),
-                errorMap
-            );
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
-        }
+        return workflowExecutor.executeAndResponse("RESET_PASSWORD", context, "en", HttpStatus.OK, GenericActionResponseDto.class, "Password updated successfully");
     }
 
     private Map<String, Object> toContextMap(Object request) {

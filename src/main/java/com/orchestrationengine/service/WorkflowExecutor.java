@@ -7,10 +7,15 @@ import com.orchestrationengine.model.WorkflowStepDefinition;
 import com.orchestrationengine.model.ServiceRequest;
 import com.orchestrationengine.repository.WorkflowRepository;
 import com.orchestrationengine.repository.ServiceRequestRepository;
+import com.orchestrationengine.dto.ErrorResponseDto;
+import com.orchestrationengine.dto.GenericActionResponseDto;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.MDC;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import java.time.LocalDateTime;
 import org.springframework.context.ApplicationContext;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.stereotype.Component;
@@ -283,6 +288,40 @@ public class WorkflowExecutor {
         } catch (Exception e) {
             log.warn("Failed to serialize request payload", e);
             return "{}";
+        }
+    }
+
+    /**
+     * Executes the workflow and automatically formats the HTTP controller response.
+     */
+    public ResponseEntity<?> executeAndResponse(
+            String serviceCode,
+            Map<String, Object> context,
+            String lang,
+            HttpStatus successStatus,
+            Class<?> successDtoClass,
+            String successMessage) {
+
+        this.executeWorkflowByServiceCode(serviceCode, context, lang);
+
+        String status = (String) context.get("status");
+        if ("SUCCESS".equals(status)) {
+            Object body = objectMapper.convertValue(context, successDtoClass);
+            if (successMessage != null && body instanceof GenericActionResponseDto genericDto) {
+                body = new GenericActionResponseDto(genericDto.traceId(), genericDto.status(), successMessage, null);
+            }
+            return ResponseEntity.status(successStatus).body(body);
+        } else {
+            Map<String, Object> errorMap = (Map<String, Object>) context.get("error");
+            String traceId = (String) context.get("traceId");
+            ErrorResponseDto errorResponse = new ErrorResponseDto(
+                traceId,
+                "FAILED",
+                LocalDateTime.now(),
+                errorMap
+            );
+            HttpStatus failureStatus = "USER_LOGIN".equals(serviceCode) ? HttpStatus.UNAUTHORIZED : HttpStatus.BAD_REQUEST;
+            return ResponseEntity.status(failureStatus).body(errorResponse);
         }
     }
 }
