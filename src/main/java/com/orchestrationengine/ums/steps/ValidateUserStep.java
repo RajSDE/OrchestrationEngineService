@@ -2,8 +2,8 @@ package com.orchestrationengine.ums.steps;
 
 import com.orchestrationengine.exception.WorkflowStepException;
 import com.orchestrationengine.service.WorkflowStep;
-import com.orchestrationengine.ums.repository.UserProfileRepository;
 import com.orchestrationengine.ums.repository.UserCredentialsRepository;
+import com.orchestrationengine.ums.repository.UserProfileRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -26,12 +26,13 @@ public class ValidateUserStep implements WorkflowStep {
         log.info("Validating user registration payload...");
 
         String username = (String) context.get("username");
+        if (username != null && username.trim().isEmpty()) {
+            context.remove("username");
+            username = null;
+        }
         String email = (String) context.get("email");
         String password = (String) context.get("password");
 
-        if (username == null || username.trim().isEmpty()) {
-            throw new WorkflowStepException("INVALID_INPUT", "Username cannot be empty");
-        }
         if (email == null || email.trim().isEmpty()) {
             throw new WorkflowStepException("INVALID_INPUT", "Email cannot be empty");
         }
@@ -39,8 +40,10 @@ public class ValidateUserStep implements WorkflowStep {
             throw new WorkflowStepException("INVALID_INPUT", "Password cannot be empty");
         }
 
-        if (userCredentialsRepository.existsByUsername(username)) {
-            throw new WorkflowStepException("USERNAME_ALREADY_EXISTS", "Username already exists: " + username);
+        if (username != null && !username.trim().isEmpty()) {
+            if (userCredentialsRepository.existsByUsername(username)) {
+                throw new WorkflowStepException("USERNAME_ALREADY_EXISTS", "Username already exists: " + username);
+            }
         }
 
         if (userProfileRepository.existsByEmail(email)) {

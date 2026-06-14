@@ -1,8 +1,8 @@
 package com.orchestrationengine.ums.steps;
 
 import com.orchestrationengine.service.WorkflowStep;
-import com.orchestrationengine.ums.repository.UserCredentialsRepository;
 import com.orchestrationengine.ums.entity.UserCredentials;
+import com.orchestrationengine.ums.repository.UserCredentialsRepository;
 import com.orchestrationengine.ums.service.PasswordHashingService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -40,6 +40,9 @@ public class CreateUserCredentialsStep implements WorkflowStep {
         }
 
         String username = (String) context.get("username");
+        if (username != null && username.trim().isEmpty()) {
+            username = null;
+        }
         String password = (String) context.get("password");
 
         String passwordHash = passwordHashingService.hashPassword(password);

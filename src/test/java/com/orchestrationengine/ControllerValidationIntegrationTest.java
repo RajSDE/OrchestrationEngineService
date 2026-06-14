@@ -35,7 +35,7 @@ public class ControllerValidationIntegrationTest {
 
         Map<?, ?> body = response.getBody();
         assertEquals("FAILED", body.get("status"));
-        assertEquals("Validation failed", body.get("message"));
+        assertEquals("Invalid registration input", body.get("message"));
 
         Map<?, ?> error = (Map<?, ?>) body.get("error");
         assertEquals("VALIDATION", error.get("component"));
@@ -71,7 +71,7 @@ public class ControllerValidationIntegrationTest {
         HttpEntity<Map<String, Object>> dupRequest = new HttpEntity<>(dupPayload, headers);
 
         ResponseEntity<Map> secondResponse = restTemplate.postForEntity("/v1/user/register", dupRequest, Map.class);
-        assertEquals(HttpStatus.BAD_REQUEST, secondResponse.getStatusCode());
+        assertEquals(HttpStatus.CONFLICT, secondResponse.getStatusCode());
         assertNotNull(secondResponse.getBody());
 
         Map<?, ?> body = secondResponse.getBody();
@@ -81,5 +81,154 @@ public class ControllerValidationIntegrationTest {
         assertNotNull(error);
         assertEquals("USERNAME_ALREADY_EXISTS", error.get("code"));
         assertEquals("validate.user", error.get("component"));
+        assertEquals("Username already exists", error.get("message"));
+    }
+
+    @Test
+    public void testRegistrationDuplicateUsernameFailureHindi() {
+        String baseUser = "dupUserHindi_" + System.currentTimeMillis();
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("username", baseUser);
+        payload.put("email", baseUser + "@example.com");
+        payload.put("password", "Pass12345");
+        payload.put("firstName", "Dup");
+        payload.put("lastName", "User");
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        HttpEntity<Map<String, Object>> request = new HttpEntity<>(payload, headers);
+
+        ResponseEntity<Map> firstResponse = restTemplate.postForEntity("/v1/user/register", request, Map.class);
+        assertEquals(HttpStatus.CREATED, firstResponse.getStatusCode());
+
+        // Try registering again with Accept-Language: hi
+        Map<String, Object> dupPayload = new HashMap<>(payload);
+        dupPayload.put("email", "different_" + baseUser + "@example.com");
+        
+        HttpHeaders hiHeaders = new HttpHeaders();
+        hiHeaders.setContentType(MediaType.APPLICATION_JSON);
+        hiHeaders.add("Accept-Language", "hi");
+        HttpEntity<Map<String, Object>> dupRequest = new HttpEntity<>(dupPayload, hiHeaders);
+
+        ResponseEntity<Map> secondResponse = restTemplate.postForEntity("/v1/user/register", dupRequest, Map.class);
+        assertEquals(HttpStatus.CONFLICT, secondResponse.getStatusCode());
+        assertNotNull(secondResponse.getBody());
+
+        Map<?, ?> body = secondResponse.getBody();
+        assertEquals("FAILED", body.get("status"));
+        Map<?, ?> error = (Map<?, ?>) body.get("error");
+        assertNotNull(error);
+        assertEquals("USERNAME_ALREADY_EXISTS", error.get("code"));
+        assertEquals("उपयोगकर्ता नाम पहले से मौजूद है", error.get("message"));
+    }
+
+    @Test
+    public void testRegistrationDuplicateUsernameFailureLanguageFallback() {
+        String baseUser = "dupUserFall_" + System.currentTimeMillis();
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("username", baseUser);
+        payload.put("email", baseUser + "@example.com");
+        payload.put("password", "Pass12345");
+        payload.put("firstName", "Dup");
+        payload.put("lastName", "User");
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        HttpEntity<Map<String, Object>> request = new HttpEntity<>(payload, headers);
+
+        ResponseEntity<Map> firstResponse = restTemplate.postForEntity("/v1/user/register", request, Map.class);
+        assertEquals(HttpStatus.CREATED, firstResponse.getStatusCode());
+
+        // Try registering again with Accept-Language: fr (should fallback to en)
+        Map<String, Object> dupPayload = new HashMap<>(payload);
+        dupPayload.put("email", "different_" + baseUser + "@example.com");
+        
+        HttpHeaders frHeaders = new HttpHeaders();
+        frHeaders.setContentType(MediaType.APPLICATION_JSON);
+        frHeaders.add("Accept-Language", "fr");
+        HttpEntity<Map<String, Object>> dupRequest = new HttpEntity<>(dupPayload, frHeaders);
+
+        ResponseEntity<Map> secondResponse = restTemplate.postForEntity("/v1/user/register", dupRequest, Map.class);
+        assertEquals(HttpStatus.CONFLICT, secondResponse.getStatusCode());
+        assertNotNull(secondResponse.getBody());
+
+        Map<?, ?> body = secondResponse.getBody();
+        assertEquals("FAILED", body.get("status"));
+        Map<?, ?> error = (Map<?, ?>) body.get("error");
+        assertNotNull(error);
+        assertEquals("USERNAME_ALREADY_EXISTS", error.get("code"));
+        assertEquals("Username already exists", error.get("message"));
+    }
+
+    @Test
+    public void testRegistrationOptionalUsername() {
+        String baseUser = "optUser_" + System.currentTimeMillis();
+        Map<String, Object> payload = new HashMap<>();
+        // Omit username
+        payload.put("email", baseUser + "@example.com");
+        payload.put("password", "Pass12345");
+        payload.put("firstName", "Optional");
+        payload.put("lastName", "Username");
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        HttpEntity<Map<String, Object>> request = new HttpEntity<>(payload, headers);
+
+        ResponseEntity<Map> response = restTemplate.postForEntity("/v1/user/register", request, Map.class);
+        assertEquals(HttpStatus.CREATED, response.getStatusCode());
+        assertNotNull(response.getBody());
+
+        Map<?, ?> body = response.getBody();
+        assertEquals("SUCCESS", body.get("status"));
+        assertNull(body.get("username"));
+    }
+
+    @Test
+    public void testRegistrationBlankUsernameSucceeds() {
+        String baseUser = "blankUser_" + System.currentTimeMillis();
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("username", "   "); // blank spaces
+        payload.put("email", baseUser + "@example.com");
+        payload.put("password", "Pass12345");
+        payload.put("firstName", "Blank");
+        payload.put("lastName", "Username");
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        HttpEntity<Map<String, Object>> request = new HttpEntity<>(payload, headers);
+
+        ResponseEntity<Map> response = restTemplate.postForEntity("/v1/user/register", request, Map.class);
+        assertEquals(HttpStatus.CREATED, response.getStatusCode());
+        assertNotNull(response.getBody());
+
+        Map<?, ?> body = response.getBody();
+        assertEquals("SUCCESS", body.get("status"));
+        assertNull(body.get("username"));
+    }
+
+    @Test
+    public void testRegistrationDtoValidationFailureHindi() {
+        Map<String, Object> invalidPayload = new HashMap<>();
+        invalidPayload.put("username", "ab"); // too short (min 3)
+        invalidPayload.put("email", "invalid-email");
+        invalidPayload.put("password", "Pass12345");
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.add("Accept-Language", "hi");
+        HttpEntity<Map<String, Object>> request = new HttpEntity<>(invalidPayload, headers);
+
+        ResponseEntity<Map> response = restTemplate.postForEntity("/v1/user/register", request, Map.class);
+
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+        assertNotNull(response.getBody());
+
+        Map<?, ?> body = response.getBody();
+        assertEquals("FAILED", body.get("status"));
+        assertEquals("अमान्य पंजीकरण इनपुट", body.get("message"));
+
+        Map<?, ?> error = (Map<?, ?>) body.get("error");
+        assertEquals("VALIDATION", error.get("component"));
+        assertEquals("INVALID_INPUT", error.get("code"));
     }
 }

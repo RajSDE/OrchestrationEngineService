@@ -8,6 +8,7 @@ import java.util.UUID;
 public record UserRegistrationResponseDto(
     String traceId,
     String status,
+    String message,
     UUID userProfileId,
     String username,
     String email

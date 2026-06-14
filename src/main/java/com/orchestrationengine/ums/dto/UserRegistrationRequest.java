@@ -3,13 +3,13 @@ package com.orchestrationengine.ums.dto;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
 @Schema(description = "User registration payload")
 public record UserRegistrationRequest(
-    @NotBlank(message = "Username is required")
-    @Size(min = 3, message = "Username must be at least 3 characters long")
-    @Schema(description = "Unique username for the profile", example = "john_doe", required = true)
+    @Pattern(regexp = "^\\s*$|^.{3,}$", message = "Username must be at least 3 characters long")
+    @Schema(description = "Unique username for the profile", example = "john_doe", required = false)
     String username,
 
     @NotBlank(message = "Email is required")

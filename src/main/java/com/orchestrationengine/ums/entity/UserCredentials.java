@@ -2,6 +2,7 @@ package com.orchestrationengine.ums.entity;
 
 import jakarta.persistence.*;
 import lombok.Data;
+
 import java.time.LocalDateTime;
 
 /**
@@ -27,7 +28,7 @@ public class UserCredentials {
     /**
      * Unique username for login purposes.
      */
-    @Column(name = "username", nullable = false, unique = true, length = 150)
+    @Column(name = "username", unique = true, length = 150)
     private String username;
 
     /**

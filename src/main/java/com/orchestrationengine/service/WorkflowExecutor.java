@@ -1,28 +1,33 @@
 package com.orchestrationengine.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.orchestrationengine.config.MdcFilter;
 import com.orchestrationengine.config.WorkflowStepLoader;
-import com.orchestrationengine.exception.WorkflowStepException;
-import com.orchestrationengine.model.WorkflowStepDefinition;
-import com.orchestrationengine.model.ServiceRequest;
-import com.orchestrationengine.repository.WorkflowRepository;
-import com.orchestrationengine.repository.ServiceRequestRepository;
 import com.orchestrationengine.dto.ErrorResponseDto;
 import com.orchestrationengine.dto.GenericActionResponseDto;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.orchestrationengine.exception.WorkflowStepException;
+import com.orchestrationengine.model.MessageCode;
+import com.orchestrationengine.model.ServiceRequest;
+import com.orchestrationengine.model.WorkflowStepDefinition;
+import com.orchestrationengine.repository.MessageCodeRepository;
+import com.orchestrationengine.repository.ServiceRequestRepository;
+import com.orchestrationengine.repository.WorkflowRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.MDC;
+import org.springframework.beans.factory.NoSuchBeanDefinitionException;
+import org.springframework.context.ApplicationContext;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import java.time.LocalDateTime;
-import org.springframework.context.ApplicationContext;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.stereotype.Component;
-import org.springframework.beans.factory.NoSuchBeanDefinitionException;
 
+import java.time.LocalDateTime;
 import java.util.*;
-import java.util.concurrent.*;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 /**
  * WorkflowExecutor is a orchestration component that executes workflow step definitions as commands.
@@ -40,6 +45,7 @@ public class WorkflowExecutor {
     private final WorkflowRepository workflowRepository;
     private final ServiceRequestRepository serviceRequestRepository;
     private final ObjectMapper objectMapper;
+    private final MessageCodeRepository messageCodeRepository;
 
     @org.springframework.beans.factory.annotation.Value("${service.request.record:false}")
     private boolean recordRequests;
@@ -304,15 +310,53 @@ public class WorkflowExecutor {
 
         this.executeWorkflowByServiceCode(serviceCode, context, lang);
 
+        String resolvedLang = "en";
+        if (lang != null && !lang.trim().isEmpty()) {
+            String[] parts = lang.split("[-_]");
+            if (parts.length > 0) {
+                resolvedLang = parts[0].trim().toLowerCase();
+            }
+        }
+
         String status = (String) context.get("status");
         if ("SUCCESS".equals(status)) {
-            Object body = objectMapper.convertValue(context, successDtoClass);
-            if (successMessage != null && body instanceof GenericActionResponseDto genericDto) {
-                body = new GenericActionResponseDto(genericDto.traceId(), genericDto.status(), successMessage, null);
+            Optional<MessageCode> msgOpt = messageCodeRepository.findByServiceCodeAndCodeAndLanguage(serviceCode, "SUCCESS", resolvedLang);
+            if (msgOpt.isEmpty() && !"en".equals(resolvedLang)) {
+                msgOpt = messageCodeRepository.findByServiceCodeAndCodeAndLanguage(serviceCode, "SUCCESS", "en");
             }
-            return ResponseEntity.status(successStatus).body(body);
+
+            String finalMessage = msgOpt.map(MessageCode::getMessage).orElse(successMessage);
+            HttpStatus finalStatus = msgOpt.map(mc -> HttpStatus.valueOf(mc.getHttpCode())).orElse(successStatus);
+
+            if (finalMessage != null) {
+                context.put("message", finalMessage);
+            }
+
+            Object body = objectMapper.convertValue(context, successDtoClass);
+            if (body instanceof GenericActionResponseDto genericDto && finalMessage != null) {
+                body = new GenericActionResponseDto(genericDto.traceId(), genericDto.status(), finalMessage, null);
+            }
+            return ResponseEntity.status(finalStatus).body(body);
         } else {
             Map<String, Object> errorMap = (Map<String, Object>) context.get("error");
+            HttpStatus failureStatus = "USER_LOGIN".equals(serviceCode) ? HttpStatus.UNAUTHORIZED : HttpStatus.BAD_REQUEST;
+
+            if (errorMap != null) {
+                String errorCode = (String) errorMap.get("code");
+                if (errorCode != null) {
+                    Optional<MessageCode> msgOpt = messageCodeRepository.findByServiceCodeAndCodeAndLanguage(serviceCode, errorCode, resolvedLang);
+                    if (msgOpt.isEmpty() && !"en".equals(resolvedLang)) {
+                        msgOpt = messageCodeRepository.findByServiceCodeAndCodeAndLanguage(serviceCode, errorCode, "en");
+                    }
+
+                    if (msgOpt.isPresent()) {
+                        MessageCode mc = msgOpt.get();
+                        errorMap.put("message", mc.getMessage());
+                        failureStatus = HttpStatus.valueOf(mc.getHttpCode());
+                    }
+                }
+            }
+
             String traceId = (String) context.get("traceId");
             ErrorResponseDto errorResponse = new ErrorResponseDto(
                 traceId,
@@ -320,7 +364,6 @@ public class WorkflowExecutor {
                 LocalDateTime.now(),
                 errorMap
             );
-            HttpStatus failureStatus = "USER_LOGIN".equals(serviceCode) ? HttpStatus.UNAUTHORIZED : HttpStatus.BAD_REQUEST;
             return ResponseEntity.status(failureStatus).body(errorResponse);
         }
     }
